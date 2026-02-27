@@ -9,7 +9,7 @@ import * as XLSX from 'xlsx';
 import { 
   Building2, HardHat, ShieldCheck, FolderLock, LineChart, LogOut,
   Plus, ArrowRight, Database, ShoppingCart, Ruler, FileText,
-  AlertOctagon, CheckSquare, Download, FileSpreadsheet, Pencil, X, ListTree, Search, Menu, History
+  AlertOctagon, CheckSquare, Download, FileSpreadsheet, Pencil, X, ListTree, Search, Menu, History, Trash2, CopyPlus
 } from 'lucide-react';
 
 // ============================================================================
@@ -26,7 +26,7 @@ const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY') || 'mock-key';
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ============================================================================
-// UTILS DE FORMATAÇÃO E MÁSCARAS FINANCEIRAS (ATUALIZADO PARA NEGATIVOS)
+// UTILS DE FORMATAÇÃO E MÁSCARAS FINANCEIRAS
 // ============================================================================
 const formatMoney = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 const formatDate = (dateString) => {
@@ -100,6 +100,11 @@ function AbaContratos() {
   const [selectedContratoForAditivo, setSelectedContratoForAditivo] = useState(null);
   const [formAditivo, setFormAditivo] = useState({ numero_aditivo: '', data_assinatura: '', valor_acrescimo: '', motivo_justificativa: '' });
 
+  // ESTADOS PARA RATEIO (NOVO CC)
+  const [showModalRateio, setShowModalRateio] = useState(false);
+  const [contratoBaseRateio, setContratoBaseRateio] = useState(null);
+  const [formRateio, setFormRateio] = useState({ orcamento_pmg_id: '', valor_inicial: '', codigo_sugerido: '' });
+
   const [buscaContrato, setBuscaContrato] = useState('');
 
   useEffect(() => { loadEmpresas(); }, []);
@@ -112,8 +117,6 @@ function AbaContratos() {
   async function loadEmpresas() { const { data } = await supabase.from('empresas').select('*').order('razao_social'); setEmpresas(data || []); }
   async function loadObras(empId) { const { data } = await supabase.from('obras').select('*').eq('empresa_id', empId).order('nome_obra'); setObras(data || []); }
   async function loadOrcamentos(obrId) { const { data } = await supabase.from('orcamento_pmg').select('*').eq('obra_id', obrId).order('codigo_centro_custo'); setOrcamentos(data || []); }
-  
-  // CARREGA CONTRATOS JUNTO COM OS SEUS ADITIVOS
   async function loadContratos(obrId) { 
     const { data } = await supabase.from('contratos')
       .select('*, orcamento_pmg(codigo_centro_custo, descricao_servico), aditivos_contrato(*)')
@@ -125,6 +128,7 @@ function AbaContratos() {
   const handleAddEmpresa = async (e) => { e.preventDefault(); const { error } = await supabase.from('empresas').insert([formEmpresa]); if (error) alert('Erro: ' + error.message); else { setFormEmpresa({ razao_social: '', cnpj: '' }); loadEmpresas(); } };
   const handleAddObra = async (e) => { e.preventDefault(); const { error } = await supabase.from('obras').insert([{ ...formObra, empresa_id: selectedEmpresaId }]); if (error) alert('Erro: ' + error.message); else { setFormObra({ codigo_obra: '', nome_obra: '' }); loadObras(selectedEmpresaId); } };
   
+  // ---- CRUD ORÇAMENTO PMG ----
   const handleAddOrUpdateOrcamento = async (e) => {
     e.preventDefault();
     const payload = { obra_id: selectedObraId, codigo_centro_custo: formOrcamento.codigo_centro_custo, descricao_servico: formOrcamento.descricao_servico, valor_aprovado_teto: parseCurrency(formOrcamento.valor_aprovado_teto) };
@@ -136,10 +140,18 @@ function AbaContratos() {
       if (error) alert('Erro ao inserir: ' + error.message); else { handleCancelEditOrcamento(); loadOrcamentos(selectedObraId); }
     }
   };
-
   const handleEditOrcamentoClick = (orc) => { setFormOrcamento({ id: orc.id, codigo_centro_custo: orc.codigo_centro_custo, descricao_servico: orc.descricao_servico, valor_aprovado_teto: formatToCurrencyString(orc.valor_aprovado_teto) }); setIsEditingOrcamento(true); };
   const handleCancelEditOrcamento = () => { setFormOrcamento(initialOrcamentoState); setIsEditingOrcamento(false); };
+  
+  // EXCLUSÃO DE PMG (COM PROTEÇÃO)
+  const handleDeleteOrcamento = async (id, codigo) => {
+    if (!window.confirm(`AUDITORIA: Tem certeza que deseja excluir a linha do PMG "${codigo}"?\n\nO banco de dados bloqueará a exclusão caso existam contratos vinculados a esta rubrica.`)) return;
+    const { error } = await supabase.from('orcamento_pmg').delete().eq('id', id);
+    if (error) alert(`BLOQUEIO DE SEGURANÇA:\nNão é possível excluir esta linha do PMG pois existem contratos atrelados a ela.\nDetalhe: ${error.message}`);
+    else loadOrcamentos(selectedObraId);
+  };
 
+  // ---- CRUD CONTRATOS ----
   const handleAddOrUpdateContrato = async (e) => {
     e.preventDefault();
     const orcSelected = orcamentos.find(o => o.id === formContrato.orcamento_pmg_id);
@@ -167,28 +179,64 @@ function AbaContratos() {
   };
   const handleCancelEdit = () => { setFormContrato(initialContratoState); setIsEditingContrato(false); };
 
+  // EXCLUSÃO DE CONTRATO (COM AUDITORIA)
+  const handleDeleteContrato = async (id, codigo) => {
+    if (!window.confirm(`ALERTA DE AUDITORIA:\nDeseja excluir permanentemente o contrato ${codigo}?\n\nNo futuro, esta ação registrará o seu usuário no log de auditoria.\n\nSe existirem Notas Fiscais, Medições ou Pedidos atrelados, o sistema recusará a exclusão.`)) return;
+    const { error } = await supabase.from('contratos').delete().eq('id', id);
+    if (error) alert(`BLOQUEIO FINANCEIRO:\nO contrato não pode ser excluído pois possui histórico financeiro (Notas, Medições ou Aditivos) amarrado a ele.\n\nDetalhe: ${error.message}`);
+    else loadContratos(selectedObraId);
+  };
+
+  // ---- INTELIGÊNCIA DE RATEIO (CÓPIA PARA NOVO CC) ----
+  const handleOpenRateio = (c) => {
+    // Lógica para gerar o sufixo .1, .2, .3
+    const baseCode = c.codigo_contrato.split('.')[0]; 
+    const relacionados = contratos.filter(ct => ct.codigo_contrato.split('.')[0] === baseCode);
+    const proximoSufixo = relacionados.length;
+    const novoCodigo = `${baseCode}.${proximoSufixo}`;
+    
+    setContratoBaseRateio(c);
+    setFormRateio({ orcamento_pmg_id: '', valor_inicial: '', codigo_sugerido: novoCodigo });
+    setShowModalRateio(true);
+  };
+
+  const handleSaveRateio = async (e) => {
+    e.preventDefault();
+    const orcSelected = orcamentos.find(o => o.id === formRateio.orcamento_pmg_id);
+    if (!orcSelected) return alert('Selecione a nova linha do PMG (Centro de Custo).');
+    
+    const payload = {
+      obra_id: selectedObraId,
+      orcamento_pmg_id: formRateio.orcamento_pmg_id,
+      codigo_contrato: formRateio.codigo_sugerido,
+      razao_social: contratoBaseRateio.razao_social,
+      cnpj_fornecedor: contratoBaseRateio.cnpj_fornecedor,
+      centro_custo_raiz: orcSelected.codigo_centro_custo,
+      descricao_servico: orcSelected.descricao_servico,
+      data_inicio: contratoBaseRateio.data_inicio, 
+      data_fechamento: contratoBaseRateio.data_fechamento,
+      valor_inicial: parseCurrency(formRateio.valor_inicial),
+      valor_adiantamento_concedido: 0 // Novo rateio zera o adiantamento para não duplicar dívida
+    };
+    
+    const { error } = await supabase.from('contratos').insert([payload]);
+    if (error) alert('Erro ao registrar fração do contrato: ' + error.message);
+    else { setShowModalRateio(false); loadContratos(selectedObraId); }
+  };
+
   // SALVAR ADITIVO NO BANCO
   const handleSaveAditivo = async (e) => {
     e.preventDefault();
     if (!selectedContratoForAditivo) return;
     
     const payload = {
-      contrato_id: selectedContratoForAditivo.id,
-      numero_aditivo: formAditivo.numero_aditivo,
-      data_assinatura: formAditivo.data_assinatura,
-      valor_acrescimo: parseCurrency(formAditivo.valor_acrescimo),
+      contrato_id: selectedContratoForAditivo.id, numero_aditivo: formAditivo.numero_aditivo,
+      data_assinatura: formAditivo.data_assinatura, valor_acrescimo: parseCurrency(formAditivo.valor_acrescimo),
       motivo_justificativa: formAditivo.motivo_justificativa
     };
-
     const { error } = await supabase.from('aditivos_contrato').insert([payload]);
-    if (error) {
-      alert('Erro ao registrar Aditivo: ' + error.message);
-    } else {
-      setShowModalAditivo(false);
-      setFormAditivo({ numero_aditivo: '', data_assinatura: '', valor_acrescimo: '', motivo_justificativa: '' });
-      setSelectedContratoForAditivo(null);
-      loadContratos(selectedObraId); // Recarrega para trazer o aditivo na cascata
-    }
+    if (error) alert('Erro ao registrar Aditivo: ' + error.message);
+    else { setShowModalAditivo(false); setFormAditivo({ numero_aditivo: '', data_assinatura: '', valor_acrescimo: '', motivo_justificativa: '' }); setSelectedContratoForAditivo(null); loadContratos(selectedObraId); }
   };
 
   const linhaPmgSelecionada = orcamentos.find(o => o.id === formContrato.orcamento_pmg_id);
@@ -224,14 +272,50 @@ function AbaContratos() {
               </div>
               <div>
                 <label className="text-[10px] font-black text-blue-600 uppercase ml-1 block mb-1">Valor do Acréscimo / Supressão</label>
-                <CurrencyInput required placeholder="Aceita valores negativos" className="w-full p-3 border border-blue-200 rounded-lg text-base font-black text-blue-900 bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500" value={formAditivo.valor_acrescimo} onChange={val => setFormAditivo({...formAditivo, valor_acrescimo: val})} />
-                <p className="text-[9px] text-slate-400 mt-1 ml-1">Use o sinal de menos (-) para supressões.</p>
+                <CurrencyInput required placeholder="Aceita valores negativos (-)" className="w-full p-3 border border-blue-200 rounded-lg text-base font-black text-blue-900 bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500" value={formAditivo.valor_acrescimo} onChange={val => setFormAditivo({...formAditivo, valor_acrescimo: val})} />
+                <p className="text-[9px] text-slate-400 mt-1 ml-1">Use o sinal de menos (-) para registrar uma supressão.</p>
               </div>
               <div>
                 <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Motivo / Justificativa</label>
                 <input required placeholder="Descreva brevemente..." className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:border-blue-400 outline-none" value={formAditivo.motivo_justificativa} onChange={e => setFormAditivo({...formAditivo, motivo_justificativa: e.target.value})} />
               </div>
               <button type="submit" className="w-full bg-slate-900 text-white p-3.5 rounded-xl text-sm font-black mt-2 hover:bg-slate-800 transition-colors">Confirmar Aditivo no Banco</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE RATEIO (CLONAR CONTRATO PARA NOVO CC) */}
+      {showModalRateio && contratoBaseRateio && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-indigo-50">
+              <div>
+                <h3 className="font-black text-indigo-900 flex items-center gap-2"><CopyPlus size={16}/> Rateio de Contrato (Sub-Fração)</h3>
+                <p className="text-[10px] text-indigo-700 font-bold mt-1">Fornecedor: {contratoBaseRateio.razao_social}</p>
+              </div>
+              <button onClick={() => setShowModalRateio(false)} className="text-indigo-400 hover:text-rose-500"><X size={20}/></button>
+            </div>
+            <form onSubmit={handleSaveRateio} className="p-6 space-y-5">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 mb-2">
+                O sistema gerou automaticamente a sub-fração <strong className="text-slate-900">{formRateio.codigo_sugerido}</strong>. 
+                Selecione abaixo o novo Centro de Custo para onde parte do valor deste fornecedor será direcionado.
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Cód. Rateio</label><input required className="w-full p-2.5 border border-slate-200 rounded-lg text-sm font-black bg-slate-100 outline-none cursor-not-allowed" value={formRateio.codigo_sugerido} readOnly /></div>
+                <div><label className="text-[10px] font-black text-indigo-600 uppercase ml-1 block mb-1">Valor Desta Fração (R$)</label><CurrencyInput required className="w-full p-2.5 border border-indigo-300 rounded-lg text-sm font-black text-indigo-900 bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formRateio.valor_inicial} onChange={val => setFormRateio({...formRateio, valor_inicial: val})} /></div>
+              </div>
+
+              <div>
+                 <label className="text-[11px] font-black text-slate-700 uppercase mb-2 block flex items-center gap-2"><ListTree size={14}/> Nova Linha do PMG (Centro de Custo)</label>
+                 <select required className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm cursor-pointer" value={formRateio.orcamento_pmg_id} onChange={e => setFormRateio({...formRateio, orcamento_pmg_id: e.target.value})}>
+                   <option value="">-- Selecione onde alocar esta fatia --</option>
+                   {orcamentos.map(orc => <option key={orc.id} value={orc.id}>{orc.codigo_centro_custo} - {orc.descricao_servico} (Teto: {formatMoney(orc.valor_aprovado_teto)})</option>)}
+                 </select>
+              </div>
+
+              <button type="submit" className="w-full bg-indigo-600 text-white p-3.5 rounded-xl text-sm font-black mt-4 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/30">Confirmar Fração de Rateio</button>
             </form>
           </div>
         </div>
@@ -291,15 +375,18 @@ function AbaContratos() {
               <div key={orc.id} className={`p-3 border rounded-xl flex justify-between items-center transition-colors group ${formOrcamento.id === orc.id ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200 hover:border-blue-300'}`}>
                 <div className="truncate pr-2">
                   <span className="text-[10px] font-black text-white bg-slate-800 px-2 py-0.5 rounded-md">{orc.codigo_centro_custo}</span>
-                  <p className="text-[11px] text-slate-700 font-bold truncate mt-1.5">{orc.descricao_servico}</p>
+                  <p className="text-[11px] text-slate-700 font-bold truncate mt-1.5" title={orc.descricao_servico}>{orc.descricao_servico}</p>
                 </div>
-                <div className="text-right shrink-0 flex items-center gap-3">
-                   <div>
+                <div className="text-right shrink-0 flex items-center gap-2">
+                   <div className="text-right mr-1">
                      <p className="text-[9px] font-black text-slate-400 uppercase leading-none mb-0.5">Teto Aprovado</p>
                      <p className="text-sm font-black text-blue-700">{formatMoney(orc.valor_aprovado_teto)}</p>
                    </div>
-                   <button onClick={() => handleEditOrcamentoClick(orc)} className="p-1.5 bg-white border border-slate-200 rounded-lg hover:bg-amber-100 hover:text-amber-700 transition-colors" title="Editar Linha PMG">
+                   <button onClick={() => handleEditOrcamentoClick(orc)} className="p-1.5 bg-white border border-slate-200 text-slate-500 rounded-lg hover:bg-amber-100 hover:text-amber-700 transition-colors" title="Editar Linha PMG">
                      <Pencil size={14} />
+                   </button>
+                   <button onClick={() => handleDeleteOrcamento(orc.id, orc.codigo_centro_custo)} className="p-1.5 bg-white border border-slate-200 text-slate-400 rounded-lg hover:bg-rose-100 hover:text-rose-600 hover:border-rose-200 transition-colors" title="Excluir Linha PMG">
+                     <Trash2 size={14} />
                    </button>
                 </div>
               </div>
@@ -334,7 +421,7 @@ function AbaContratos() {
             )}
             
             <div className="grid grid-cols-2 gap-4 mb-4">
-              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Cód. Contrato</label><input required placeholder="Ex: CT-001 (Para rateio use CT-001-A)" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm font-semibold focus:border-emerald-400 outline-none" value={formContrato.codigo_contrato} onChange={e => setFormContrato({...formContrato, codigo_contrato: e.target.value})} /></div>
+              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Cód. Contrato</label><input required placeholder="Ex: CT-001" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm font-semibold focus:border-emerald-400 outline-none" value={formContrato.codigo_contrato} onChange={e => setFormContrato({...formContrato, codigo_contrato: e.target.value})} /></div>
               <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">CNPJ Fornecedor</label><input required placeholder="Apenas números" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:border-emerald-400 outline-none" value={formContrato.cnpj_fornecedor} onChange={e => setFormContrato({...formContrato, cnpj_fornecedor: e.target.value})} /></div>
             </div>
 
@@ -451,12 +538,18 @@ function AbaContratos() {
                           <p className="font-black text-slate-900 text-base">{formatMoney(tetoAtualizado)}</p>
                           <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Base: {formatMoney(c.valor_inicial)}</p>
                         </td>
-                        <td className="p-4 pr-6 text-center space-x-2 whitespace-nowrap">
-                          <button onClick={() => { setSelectedContratoForAditivo(c); setShowModalAditivo(true); }} className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-800 hover:text-white transition-colors text-[10px] font-black uppercase tracking-wider" title="Lançar Aditivo ou Supressão">
+                        <td className="p-4 pr-6 text-center space-x-1.5 whitespace-nowrap">
+                          <button onClick={() => handleOpenRateio(c)} className="inline-flex items-center gap-1 px-2 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-600 hover:text-white transition-colors text-[9px] font-black uppercase tracking-wider" title="Ratear (Clonar) para outro Centro de Custo">
+                            <CopyPlus size={12}/> Rateio PMG
+                          </button>
+                          <button onClick={() => { setSelectedContratoForAditivo(c); setShowModalAditivo(true); }} className="inline-flex items-center gap-1 px-2 py-1.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-800 hover:text-white transition-colors text-[9px] font-black uppercase tracking-wider" title="Lançar Aditivo ou Supressão">
                             <Plus size={12}/> Aditivo
                           </button>
-                          <button onClick={() => handleEditContratoClick(c)} className={`inline-flex p-1.5 rounded-lg transition-colors ${formContrato.id === c.id ? 'bg-amber-500 text-white' : 'bg-white border border-slate-200 text-slate-500 hover:bg-amber-100 hover:text-amber-700 hover:border-amber-300'}`} title="Editar Contrato">
+                          <button onClick={() => handleEditContratoClick(c)} className={`inline-flex p-1.5 rounded-lg border transition-colors ${formContrato.id === c.id ? 'bg-amber-500 text-white border-amber-600' : 'bg-white border-slate-200 text-slate-500 hover:bg-amber-100 hover:text-amber-700 hover:border-amber-300'}`} title="Editar Contrato">
                             <Pencil size={14} />
+                          </button>
+                          <button onClick={() => handleDeleteContrato(c.id, c.codigo_contrato)} className="inline-flex p-1.5 bg-white border border-slate-200 rounded-lg text-slate-400 hover:bg-rose-100 hover:text-rose-700 hover:border-rose-300 transition-colors" title="Excluir Contrato (Auditoria Ativa)">
+                            <Trash2 size={14} />
                           </button>
                         </td>
                       </tr>
