@@ -10,7 +10,7 @@ import {
   Building2, HardHat, ShieldCheck, FolderLock, LineChart, LogOut,
   Plus, ArrowRight, Database, ShoppingCart, Ruler, FileText,
   AlertOctagon, CheckSquare, Download, FileSpreadsheet, Pencil, X, ListTree, Search, Menu, History, Trash2, CopyPlus,
-  ChevronRight, ChevronDown, CornerDownRight, PieChart, TrendingUp, DollarSign, Activity
+  ChevronRight, ChevronDown, CornerDownRight, PieChart, TrendingUp, TrendingDown, DollarSign, Activity, Wallet, Percent
 } from 'lucide-react';
 
 // ============================================================================
@@ -76,7 +76,7 @@ const getBaseCode = (code) => {
 };
 
 // ============================================================================
-// 1. ABA DASHBOARD (A VISÃO DE ÁGUIA PMG)
+// 1. ABA DASHBOARD (A VISÃO DE ÁGUIA PMG E MATRIZ EM ÁRVORE)
 // ============================================================================
 function AbaDashboard() {
   const [empresas, setEmpresas] = useState([]);
@@ -86,6 +86,10 @@ function AbaDashboard() {
   
   const [dashboardData, setDashboardData] = useState({ orcamentos: [], kpis: null });
   const [loading, setLoading] = useState(false);
+  
+  // Controles de UX do Dashboard
+  const [buscaDashboard, setBuscaDashboard] = useState('');
+  const [expandedCCs, setExpandedCCs] = useState({}); // Controla quais nós da EAP estão abertos
 
   useEffect(() => { loadEmpresas(); }, []);
   useEffect(() => { if (selectedEmpresaId) loadObras(selectedEmpresaId); else { setObras([]); setSelectedObraId(''); } }, [selectedEmpresaId]);
@@ -100,45 +104,61 @@ function AbaDashboard() {
       // 1. Buscar EAP (Orçamento Base)
       const { data: orcData } = await supabase.from('orcamento_pmg').select('*').eq('obra_id', obrId).order('codigo_centro_custo');
       
-      // 2. Buscar Contratos e seus Aditivos
-      const { data: contData } = await supabase.from('contratos').select('id, orcamento_pmg_id, valor_inicial, aditivos_contrato(valor_acrescimo)').eq('obra_id', obrId);
+      // 2. Buscar Contratos e Aditivos
+      const { data: contData } = await supabase.from('contratos').select('*, aditivos_contrato(valor_acrescimo)').eq('obra_id', obrId);
       
-      // 3. Buscar Notas Fiscais (Incorrido) com Inner Join silencioso para pegar o orcamento_pmg_id
+      // 3. Buscar NFs com as colunas de Retenção e Faturamento Direto/Indireto
       const { data: nfData } = await supabase.from('documentos_fiscais')
-        .select('valor_bruto, contratos!inner(obra_id, orcamento_pmg_id)')
+        .select('valor_bruto, valor_retencao_tecnica, valor_amortizado_adiantamento, classificacao_faturamento, contratos!inner(id, obra_id, orcamento_pmg_id)')
         .eq('contratos.obra_id', obrId);
 
       if (!orcData) return;
 
-      let globalCapex = 0;
-      let globalContratado = 0;
-      let globalIncorrido = 0;
+      // Agregação de Notas por Contrato (Para exibir o detalhe por contrato na árvore)
+      const nfAggByContract = {};
+      (nfData || []).forEach(nf => {
+        const cId = nf.contratos.id;
+        if (!nfAggByContract[cId]) {
+          nfAggByContract[cId] = { fatDireto: 0, fatIndireto: 0, retencaoAcumulada: 0, amortizadoAcumulado: 0, totalIncorrido: 0 };
+        }
+        const v = Number(nf.valor_bruto);
+        nfAggByContract[cId].totalIncorrido += v;
+        nfAggByContract[cId].retencaoAcumulada += Number(nf.valor_retencao_tecnica || 0);
+        nfAggByContract[cId].amortizadoAcumulado += Number(nf.valor_amortizado_adiantamento || 0);
+        
+        if (nf.classificacao_faturamento === 'Indireto') nfAggByContract[cId].fatIndireto += v;
+        else nfAggByContract[cId].fatDireto += v; // Trata vazio ou 'Direto' como Direto
+      });
+
+      let globalCapex = 0; let globalContratado = 0; let globalIncorrido = 0;
 
       const linhasMatematicas = orcData.map(orc => {
         const capex = Number(orc.valor_aprovado_teto);
         globalCapex += capex;
 
-        // Somar Contratos e Aditivos desta linha
-        const contratosDaLinha = (contData || []).filter(c => c.orcamento_pmg_id === orc.id);
-        let contratadoLinha = 0;
-        contratosDaLinha.forEach(c => {
-          contratadoLinha += Number(c.valor_inicial);
-          const aditivos = c.aditivos_contrato || [];
-          aditivos.forEach(a => { contratadoLinha += Number(a.valor_acrescimo); });
+        // Varrer contratos desta EAP
+        const contratosDaLinha = (contData || []).filter(c => c.orcamento_pmg_id === orc.id).map(c => {
+           // Calcular matemática individual do contrato
+           const aditivosVal = c.aditivos_contrato?.reduce((acc, a) => acc + Number(a.valor_acrescimo), 0) || 0;
+           const tetoAtualizado = Number(c.valor_inicial) + aditivosVal;
+           const agg = nfAggByContract[c.id] || { fatDireto: 0, fatIndireto: 0, retencaoAcumulada: 0, amortizadoAcumulado: 0, totalIncorrido: 0 };
+           
+           const adiantamentoTotal = Number(c.valor_adiantamento_concedido) || 0;
+           const saldoAdiantamento = adiantamentoTotal - agg.amortizadoAcumulado;
+
+           return { ...c, tetoAtualizado, ...agg, adiantamentoTotal, saldoAdiantamento };
         });
+
+        const contratadoLinha = contratosDaLinha.reduce((acc, c) => acc + c.tetoAtualizado, 0);
         globalContratado += contratadoLinha;
 
-        // Somar Notas Fiscais desta linha
-        const notasDaLinha = (nfData || []).filter(nf => nf.contratos.orcamento_pmg_id === orc.id);
-        const incorridoLinha = notasDaLinha.reduce((acc, nf) => acc + Number(nf.valor_bruto), 0);
+        const incorridoLinha = contratosDaLinha.reduce((acc, c) => acc + c.totalIncorrido, 0);
         globalIncorrido += incorridoLinha;
 
         const saveEap = capex - contratadoLinha;
-        const saldoPagar = contratadoLinha - incorridoLinha;
         const percComprometido = capex > 0 ? (contratadoLinha / capex) * 100 : 0;
-        const percExecutado = contratadoLinha > 0 ? (incorridoLinha / contratadoLinha) * 100 : 0;
 
-        return { ...orc, capex, contratadoLinha, saveEap, incorridoLinha, saldoPagar, percComprometido, percExecutado };
+        return { ...orc, capex, contratadoLinha, saveEap, incorridoLinha, percComprometido, contratosDetalhes: contratosDaLinha };
       });
 
       const globalSave = globalCapex - globalContratado;
@@ -152,6 +172,28 @@ function AbaDashboard() {
     setLoading(false);
   }
 
+  const toggleCC = (id) => {
+    setExpandedCCs(prev => ({...prev, [id]: !prev[id]}));
+  };
+
+  // Motor de Busca Ativo na Matriz
+  const term = buscaDashboard.toLowerCase();
+  const orcamentosFiltrados = dashboardData.orcamentos.filter(orc => {
+    if (!term) return true;
+    const matchCC = orc.codigo_centro_custo.toLowerCase().includes(term) || orc.descricao_servico.toLowerCase().includes(term);
+    const matchContract = orc.contratosDetalhes.some(c => 
+      c.codigo_contrato.toLowerCase().includes(term) || 
+      c.razao_social.toLowerCase().includes(term) ||
+      (c.cnpj_fornecedor && c.cnpj_fornecedor.includes(term))
+    );
+    
+    // Auto-expandir se achou o contrato escondido dentro da EAP
+    if (matchContract && !expandedCCs[orc.id] && term.length > 2) {
+      setTimeout(() => setExpandedCCs(prev => ({...prev, [orc.id]: true})), 10);
+    }
+    return matchCC || matchContract;
+  });
+
   return (
     <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-6 pb-20">
       <header className="mb-4">
@@ -162,14 +204,14 @@ function AbaDashboard() {
       {/* FILTROS GLOBAIS DE DIRETORIA */}
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block flex items-center gap-2"><Building2 size={14}/> Empresa Investidora</label>
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Building2 size={14}/> Empresa Investidora</label>
           <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500" value={selectedEmpresaId} onChange={e => setSelectedEmpresaId(e.target.value)}>
             <option value="">-- Filtro Global: Selecionar Investidor --</option>
             {empresas.map(emp => <option key={emp.id} value={emp.id}>{emp.razao_social}</option>)}
           </select>
         </div>
         <div className={`${!selectedEmpresaId ? 'opacity-30 pointer-events-none' : ''} transition-opacity`}>
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block flex items-center gap-2"><HardHat size={14}/> Empreendimento (Obra)</label>
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2"><HardHat size={14}/> Empreendimento (Obra)</label>
           <select className="w-full p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm font-black text-blue-900 outline-none focus:ring-2 focus:ring-blue-500 shadow-inner" value={selectedObraId} onChange={e => setSelectedObraId(e.target.value)}>
             <option value="">-- Filtro Global: Selecionar Obra --</option>
             {obras.map(o => <option key={o.id} value={o.id}>{o.codigo_obra} - {o.nome_obra}</option>)}
@@ -181,7 +223,7 @@ function AbaDashboard() {
         <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 bg-white/50">
           <PieChart size={48} className="mx-auto mb-4 opacity-20" />
           <h3 className="text-xl font-black text-slate-600 mb-2">Aguardando Parâmetros</h3>
-          <p className="text-sm font-medium">Selecione uma Empresa e uma Obra no topo para carregar o Motor PMG.</p>
+          <p className="text-sm font-medium">Selecione uma Empresa e uma Obra no topo para carregar a matriz PMG.</p>
         </div>
       ) : loading ? (
         <div className="p-12 flex justify-center"><div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
@@ -195,7 +237,7 @@ function AbaDashboard() {
                 <Database size={16} className="text-blue-500" />
               </div>
               <h4 className="text-2xl font-black text-slate-900">{formatMoney(dashboardData.kpis.globalCapex)}</h4>
-              <p className="text-xs text-slate-500 mt-1 font-medium">Teto Global Aprovado</p>
+              <p className="text-[10px] text-slate-500 mt-1 font-bold uppercase">Teto Global EAP</p>
             </div>
 
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -204,7 +246,7 @@ function AbaDashboard() {
                 <FolderLock size={16} className="text-amber-500" />
               </div>
               <h4 className="text-2xl font-black text-slate-900">{formatMoney(dashboardData.kpis.globalContratado)}</h4>
-              <p className="text-xs text-slate-500 mt-1 font-medium">Soma de Contratos + Aditivos</p>
+              <p className="text-[10px] text-slate-500 mt-1 font-bold uppercase">Soma de Contratos + Aditivos</p>
             </div>
 
             <div className={`p-6 rounded-2xl shadow-sm border ${dashboardData.kpis.globalSave >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
@@ -215,74 +257,137 @@ function AbaDashboard() {
                 {dashboardData.kpis.globalSave >= 0 ? <TrendingUp size={16} className="text-emerald-600" /> : <TrendingDown size={16} className="text-rose-600" />}
               </div>
               <h4 className={`text-2xl font-black ${dashboardData.kpis.globalSave >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{formatMoney(dashboardData.kpis.globalSave)}</h4>
-              <p className={`text-xs mt-1 font-bold ${dashboardData.kpis.globalSave >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>Capex vs. Comprometido</p>
+              <p className={`text-[10px] mt-1 font-bold uppercase ${dashboardData.kpis.globalSave >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>Base Aprovada vs. Assinada</p>
             </div>
 
             <div className="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800 text-white relative overflow-hidden">
               <div className="absolute -right-4 -bottom-4 opacity-10"><Activity size={100} /></div>
               <div className="relative z-10">
                 <div className="flex justify-between items-start mb-2">
-                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Incorrido (Realizado)</p>
+                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Incorrido (Notas)</p>
                   <DollarSign size={16} className="text-blue-400" />
                 </div>
                 <h4 className="text-2xl font-black">{formatMoney(dashboardData.kpis.globalIncorrido)}</h4>
-                <p className="text-xs text-slate-400 mt-1 font-medium">Notas Fiscais Retidas / Pagas</p>
+                <p className="text-[10px] text-slate-400 mt-1 font-bold uppercase">Medido e Retido</p>
               </div>
             </div>
           </div>
 
-          {/* MATRIZ DE EAP - LINHA A LINHA */}
+          {/* MATRIZ DE EAP - LINHA A LINHA COM VISÃO EM ÁRVORE */}
           <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-              <h3 className="font-black text-slate-800 flex items-center gap-2"><ListTree size={20} className="text-blue-600"/> Análise de EAP (Linha Base)</h3>
+            <div className="p-5 bg-slate-900 flex flex-col sm:flex-row justify-between items-center gap-4">
+              <h3 className="font-black text-white flex items-center gap-2"><ListTree size={18} className="text-blue-400"/> EAP & Matriz de Contratos</h3>
+              <div className="relative w-full sm:w-80">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search size={14} className="text-slate-400"/></div>
+                <input type="text" placeholder="Buscar por código, fornecedor ou CC..." className="w-full pl-9 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none" value={buscaDashboard} onChange={e => setBuscaDashboard(e.target.value)} />
+                {buscaDashboard && <button onClick={() => setBuscaDashboard('')} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"><X size={14}/></button>}
+              </div>
             </div>
             
             <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-white border-b-2 border-slate-100 text-slate-500 font-black uppercase tracking-wider text-[10px]">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead className="bg-slate-100 border-b-2 border-slate-200 text-slate-600 font-black uppercase tracking-wider text-[9px]">
                   <tr>
-                    <th className="p-5 pl-6">Rubrica PMG</th>
-                    <th className="p-5 text-right">Orçamento Base (R$)</th>
-                    <th className="p-5 text-right">Contratado (R$)</th>
-                    <th className="p-5 w-48">Consumo Capex (%)</th>
-                    <th className="p-5 text-right">Save Gerado (R$)</th>
-                    <th className="p-5 text-right bg-slate-50/50">Incorrido (NF)</th>
+                    <th className="p-4 pl-6">Rubrica PMG (Nó Pai)</th>
+                    <th className="p-4 text-right">Orçamento (Capex)</th>
+                    <th className="p-4 text-right">Teto Contratado</th>
+                    <th className="p-4 w-40 text-center">Consumo (%)</th>
+                    <th className="p-4 text-right">Save Gerado</th>
+                    <th className="p-4 text-right">Fat. Incorrido</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {dashboardData.orcamentos.length === 0 ? (
-                     <tr><td colSpan="6" className="p-12 text-center text-slate-400">EAP não cadastrada para esta obra. Vá em "Estrutura & Contratos".</td></tr>
+                  {orcamentosFiltrados.length === 0 ? (
+                     <tr><td colSpan="6" className="p-12 text-center text-slate-400">Nenhum dado corresponde à sua busca.</td></tr>
                   ) : (
-                    dashboardData.orcamentos.map(linha => (
-                      <tr key={linha.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-5 pl-6">
-                          <span className="inline-block px-2 py-1 bg-slate-800 text-white rounded text-[10px] font-black mr-2">{linha.codigo_centro_custo}</span>
-                          <span className="font-bold text-slate-700">{linha.descricao_servico}</span>
-                        </td>
-                        <td className="p-5 text-right font-black text-slate-900">{formatMoney(linha.capex)}</td>
-                        <td className="p-5 text-right font-bold text-amber-600">{formatMoney(linha.contratadoLinha)}</td>
-                        
-                        {/* Barra de Progresso Comprometido */}
-                        <td className="p-5">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                              <div className={`h-full rounded-full ${linha.percComprometido > 100 ? 'bg-rose-500' : 'bg-blue-500'}`} style={{width: `${Math.min(linha.percComprometido, 100)}%`}}></div>
-                            </div>
-                            <span className="text-[10px] font-black text-slate-500 w-8 text-right">{linha.percComprometido.toFixed(0)}%</span>
-                          </div>
-                        </td>
+                    orcamentosFiltrados.map(linha => {
+                      const isExpanded = expandedCCs[linha.id];
+                      const hasContracts = linha.contratosDetalhes && linha.contratosDetalhes.length > 0;
+                      
+                      return (
+                        <React.Fragment key={linha.id}>
+                          {/* NÓ PAI (EAP) */}
+                          <tr className={`transition-colors cursor-pointer group ${isExpanded ? 'bg-blue-50/50' : 'hover:bg-slate-50'}`} onClick={() => hasContracts && toggleCC(linha.id)}>
+                            <td className="p-4 pl-4 flex items-center gap-2">
+                              <button className={`p-1 rounded-md transition-colors ${hasContracts ? 'text-slate-600 bg-slate-200 group-hover:bg-blue-200' : 'text-transparent cursor-default'}`}>
+                                {hasContracts ? (isExpanded ? <ChevronDown size={14}/> : <ChevronRight size={14}/>) : <ChevronRight size={14}/>}
+                              </button>
+                              <div>
+                                <span className="inline-block px-1.5 py-0.5 bg-slate-800 text-white rounded text-[10px] font-black mr-1.5">{linha.codigo_centro_custo}</span>
+                                <span className="font-bold text-slate-800 text-xs">{linha.descricao_servico}</span>
+                              </div>
+                            </td>
+                            <td className="p-4 text-right font-black text-slate-900">{formatMoney(linha.capex)}</td>
+                            <td className="p-4 text-right font-bold text-amber-700">{formatMoney(linha.contratadoLinha)}</td>
+                            
+                            <td className="p-4">
+                              <div className="flex items-center gap-2 justify-end">
+                                <div className="flex-1 bg-slate-200 rounded-full h-2 overflow-hidden max-w-[80px]">
+                                  <div className={`h-full rounded-full ${linha.percComprometido > 100 ? 'bg-rose-500' : 'bg-blue-500'}`} style={{width: `${Math.min(linha.percComprometido, 100)}%`}}></div>
+                                </div>
+                                <span className="text-[10px] font-black text-slate-500 w-8">{linha.percComprometido.toFixed(0)}%</span>
+                              </div>
+                            </td>
 
-                        <td className={`p-5 text-right font-black ${linha.saveEap >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                          {formatMoney(linha.saveEap)}
-                        </td>
-                        <td className="p-5 text-right font-black text-blue-700 bg-blue-50/30">
-                          {formatMoney(linha.incorridoLinha)}
-                          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1">
-                            {linha.percExecutado.toFixed(0)}% Executado
-                          </p>
-                        </td>
-                      </tr>
-                    ))
+                            <td className={`p-4 text-right font-black ${linha.saveEap >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              {formatMoney(linha.saveEap)}
+                            </td>
+                            <td className="p-4 text-right font-black text-blue-700">
+                              {formatMoney(linha.incorridoLinha)}
+                            </td>
+                          </tr>
+
+                          {/* NÓS FILHOS (CONTRATOS) EXPANDIDOS */}
+                          {isExpanded && hasContracts && (
+                            <tr className="bg-slate-50/80 border-none">
+                              <td colSpan="6" className="p-0">
+                                <div className="pl-12 pr-6 py-4 bg-gradient-to-r from-blue-50/30 to-slate-50/30 border-l-4 border-l-blue-400 shadow-inner">
+                                  <table className="w-full text-left">
+                                    <thead className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                                      <tr>
+                                        <th className="pb-2 w-1/4">Fornecedor Vinculado</th>
+                                        <th className="pb-2 text-right">Teto (Base + Adt.)</th>
+                                        <th className="pb-2 text-right">Adiantamento (Saldo)</th>
+                                        <th className="pb-2 text-right text-emerald-600">Fat. Direto (Inquilino)</th>
+                                        <th className="pb-2 text-right text-amber-600">Fat. Indireto (Construtora)</th>
+                                        <th className="pb-2 text-right text-rose-600">Retenção Cativa</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100/50">
+                                      {linha.contratosDetalhes.map(c => (
+                                        <tr key={c.id} className="hover:bg-white transition-colors">
+                                          <td className="py-3">
+                                            <div className="flex items-center gap-2">
+                                              <CornerDownRight size={12} className="text-slate-300"/>
+                                              <div>
+                                                <p className="font-black text-slate-800 text-[11px]">{c.codigo_contrato}</p>
+                                                <p className="text-[9px] font-bold text-slate-500 truncate max-w-[200px]" title={c.razao_social}>{c.razao_social}</p>
+                                              </div>
+                                            </div>
+                                          </td>
+                                          <td className="py-3 text-right font-black text-slate-700 text-[11px]">{formatMoney(c.tetoAtualizado)}</td>
+                                          <td className="py-3 text-right">
+                                            {c.adiantamentoTotal > 0 ? (
+                                              <>
+                                                <span className="font-bold text-slate-800 text-[11px] block">{formatMoney(c.saldoAdiantamento)}</span>
+                                                <span className="text-[8px] text-slate-400 block mt-0.5">CONCEDIDO: {formatMoney(c.adiantamentoTotal)}</span>
+                                              </>
+                                            ) : <span className="text-slate-300 text-[10px]">-</span>}
+                                          </td>
+                                          <td className="py-3 text-right font-black text-emerald-700 text-[11px]">{formatMoney(c.fatDireto)}</td>
+                                          <td className="py-3 text-right font-black text-amber-700 text-[11px]">{formatMoney(c.fatIndireto)}</td>
+                                          <td className="py-3 text-right font-black text-rose-700 text-[11px]">{formatMoney(c.retencaoAcumulada)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -472,7 +577,6 @@ function AbaContratos() {
     if (!groupedContracts[baseCode]) {
       groupedContracts[baseCode] = { root: null, rateios: [], totalUnified: 0 };
     }
-    // Determina se é a raiz (não possui sufíxo numérico no split)
     if (c.codigo_contrato === baseCode) {
       groupedContracts[baseCode].root = c;
     } else {
@@ -969,7 +1073,9 @@ function AbaAlfandega() {
   const [medicoes, setMedicoes] = useState([]);
   const [notasFiscais, setNotasFiscais] = useState([]);
   const [tipoDocumento, setTipoDocumento] = useState('Serviço'); 
-  const [formNF, setFormNF] = useState({ numero_documento: '', data_emissao: '', data_vencimento: '', valor_bruto: '', impostos_destacados: '', valor_retencao_tecnica: '', valor_amortizado_adiantamento: '', pedido_id: '', medicao_id: '' });
+  
+  // NOVO: Adicionado campo de Faturamento Direto/Indireto no formulário
+  const [formNF, setFormNF] = useState({ numero_documento: '', data_emissao: '', data_vencimento: '', valor_bruto: '', impostos_destacados: '', valor_retencao_tecnica: '', valor_amortizado_adiantamento: '', pedido_id: '', medicao_id: '', classificacao_faturamento: 'Direto' });
 
   useEffect(() => { loadEmpresas(); }, []);
   useEffect(() => { if (selectedEmpresaId) loadObras(); else { setObras([]); setSelectedObraId(''); } }, [selectedEmpresaId]);
@@ -991,10 +1097,11 @@ function AbaAlfandega() {
       impostos_destacados: parseCurrency(formNF.impostos_destacados),
       valor_retencao_tecnica: parseCurrency(formNF.valor_retencao_tecnica),
       valor_amortizado_adiantamento: parseCurrency(formNF.valor_amortizado_adiantamento),
+      classificacao_faturamento: formNF.classificacao_faturamento, // Salva se é Direto ou Indireto no Banco
       pedido_id: tipoDocumento === 'Material' ? formNF.pedido_id : null, medicao_id: tipoDocumento === 'Serviço' ? formNF.medicao_id : null
     };
     const { error } = await supabase.from('documentos_fiscais').insert([payload]);
-    if (error) alert(`[BLOQUEIO DA ALFÂNDEGA]\n\n${error.message}`); else { alert("Sucesso!"); setFormNF({ numero_documento: '', data_emissao: '', data_vencimento: '', valor_bruto: '', impostos_destacados: '', valor_retencao_tecnica: '', valor_amortizado_adiantamento: '', pedido_id: '', medicao_id: '' }); loadNotasFiscais(); }
+    if (error) alert(`[BLOQUEIO DA ALFÂNDEGA]\n\n${error.message}`); else { alert("Sucesso!"); setFormNF({ numero_documento: '', data_emissao: '', data_vencimento: '', valor_bruto: '', impostos_destacados: '', valor_retencao_tecnica: '', valor_amortizado_adiantamento: '', pedido_id: '', medicao_id: '', classificacao_faturamento: 'Direto' }); loadNotasFiscais(); }
   };
 
   return (
@@ -1009,8 +1116,17 @@ function AbaAlfandega() {
         <div className="bg-white p-6 rounded-2xl shadow-xl border-t-4 border-t-rose-600 border-x border-b border-slate-200">
           <form onSubmit={handleSubmitNF} className="space-y-4">
             <div className="flex gap-2 mb-4">{['Serviço', 'Material'].map(tipo => (<button key={tipo} type="button" onClick={() => setTipoDocumento(tipo)} className={`flex-1 py-2 text-xs font-bold rounded-lg border ${tipoDocumento === tipo ? 'bg-rose-600 text-white' : 'bg-white'}`}>{tipo}</button>))}</div>
-            {tipoDocumento === 'Serviço' && (<select required className="w-full p-2.5 border rounded-lg text-sm" value={formNF.medicao_id} onChange={e => setFormNF({...formNF, medicao_id: e.target.value})}><option value="">Selecione a Medição</option>{medicoes.map(m => <option key={m.id} value={m.id}>{m.codigo_medicao} (Teto: {formatMoney(m.valor_bruto_medido)})</option>)}</select>)}
-            {tipoDocumento === 'Material' && (<select required className="w-full p-2.5 border rounded-lg text-sm" value={formNF.pedido_id} onChange={e => setFormNF({...formNF, pedido_id: e.target.value})}><option value="">Selecione o Pedido</option>{pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido} (Teto: {formatMoney(p.valor_total_aprovado)})</option>)}</select>)}
+            
+            <div className="grid grid-cols-2 gap-3">
+              {tipoDocumento === 'Serviço' && (<select required className="w-full p-2.5 border rounded-lg text-sm" value={formNF.medicao_id} onChange={e => setFormNF({...formNF, medicao_id: e.target.value})}><option value="">Selecione a Medição</option>{medicoes.map(m => <option key={m.id} value={m.id}>{m.codigo_medicao} (Teto: {formatMoney(m.valor_bruto_medido)})</option>)}</select>)}
+              {tipoDocumento === 'Material' && (<select required className="w-full p-2.5 border rounded-lg text-sm" value={formNF.pedido_id} onChange={e => setFormNF({...formNF, pedido_id: e.target.value})}><option value="">Selecione o Pedido</option>{pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido} (Teto: {formatMoney(p.valor_total_aprovado)})</option>)}</select>)}
+              
+              <select required className="w-full p-2.5 border border-indigo-200 bg-indigo-50 text-indigo-900 font-bold rounded-lg text-sm" value={formNF.classificacao_faturamento} onChange={e => setFormNF({...formNF, classificacao_faturamento: e.target.value})}>
+                 <option value="Direto">Fat. Direto (Inquilino)</option>
+                 <option value="Indireto">Fat. Indireto (Construtora)</option>
+              </select>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <input required placeholder="Nº Fatura" className="w-full p-2.5 border rounded-lg text-sm" value={formNF.numero_documento} onChange={e => setFormNF({...formNF, numero_documento: e.target.value})} />
               <CurrencyInput required placeholder="Valor Bruto (R$)" className="w-full p-2.5 border rounded-lg text-sm font-black text-rose-900 bg-rose-50" value={formNF.valor_bruto} onChange={val => setFormNF({...formNF, valor_bruto: val})} />
@@ -1031,7 +1147,10 @@ function AbaAlfandega() {
            <div className="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
              {notasFiscais.map(nf => (
                  <div key={nf.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
-                   <div><span className="font-black text-slate-800 text-lg">NF {nf.numero_documento}</span><p className="text-xs text-slate-500 font-bold">{nf.tipo_documento}</p></div>
+                   <div>
+                     <span className="font-black text-slate-800 text-lg">NF {nf.numero_documento}</span>
+                     <p className="text-xs text-slate-500 font-bold">{nf.tipo_documento} • {nf.classificacao_faturamento}</p>
+                   </div>
                    <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase">Valor Bruto</p><p className="text-xl font-black text-slate-900">{formatMoney(nf.valor_bruto)}</p></div>
                  </div>
              ))}
