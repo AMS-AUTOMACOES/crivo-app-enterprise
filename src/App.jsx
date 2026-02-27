@@ -1,42 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import * as XLSX from 'xlsx';
+
+// ============================================================================
+// ⚠️ INSTRUÇÃO PARA O GITHUB: DESCOMENTE AS 2 LINHAS ABAIXO E APAGUE OS MOCKS ⚠️
+// import { createClient } from '@supabase/supabase-js';
+// import * as XLSX from 'xlsx';
+// ============================================================================
+
 import { 
-  Building2, 
-  HardHat, 
-  ShieldCheck, 
-  FolderLock, 
-  LineChart, 
-  LogOut,
-  Plus,
-  ArrowRight,
-  Database,
-  ShoppingCart,
-  Ruler,
-  FileText,
-  AlertOctagon,
-  CheckSquare,
-  Download,
-  FileSpreadsheet,
-  Pencil,
-  X,
-  ListTree,
-  Search,
-  Menu
+  Building2, HardHat, ShieldCheck, FolderLock, LineChart, LogOut,
+  Plus, ArrowRight, Database, ShoppingCart, Ruler, FileText,
+  AlertOctagon, CheckSquare, Download, FileSpreadsheet, Pencil, X, ListTree, Search, Menu, History
 } from 'lucide-react';
+
+// --- MOCKS TEMPORÁRIOS PARA O PREVIEW NÃO TRAVAR (APAGUE NO SEU GITHUB) ---
+const chain = { select:()=>chain, eq:()=>chain, order:()=>Promise.resolve({data:[]}), is:()=>Promise.resolve({data:[]}), insert:()=>Promise.resolve({error:null}), update:()=>chain, in:()=>Promise.resolve({error:null}), single:()=>Promise.resolve({data:{id:1}}) };
+const createClient = () => ({ from: () => chain });
+const XLSX = { utils: { json_to_sheet: () => {}, book_new: () => {}, book_append_sheet: () => {} }, writeFile: () => {} };
+// --------------------------------------------------------------------------
 
 // ============================================================================
 // 1. CONEXÃO COM O MOTOR (SUPABASE) - PRODUÇÃO PURA
 // ============================================================================
-// NOTA TÁTICA: Este código utiliza importações reais ('@supabase/supabase-js' e 'xlsx').
-// O ambiente de pré-visualização desta tela vai acusar erro de compilação, 
-// mas ele funcionará perfeitamente no seu GitHub/Vercel.
 const getEnv = (key) => {
-  try {
-    return typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env[key] : '';
-  } catch (e) {
-    return '';
-  }
+  try { return typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env[key] : ''; } 
+  catch (e) { return ''; }
 };
 
 const supabaseUrl = getEnv('VITE_SUPABASE_URL') || 'https://mock.supabase.co';
@@ -45,7 +32,7 @@ const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY') || 'mock-key';
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ============================================================================
-// UTILS DE FORMATAÇÃO E MÁSCARAS FINANCEIRAS
+// UTILS DE FORMATAÇÃO E MÁSCARAS FINANCEIRAS (ATUALIZADO PARA NEGATIVOS)
 // ============================================================================
 const formatMoney = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 const formatDate = (dateString) => {
@@ -54,48 +41,45 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 };
 
-// Transforma número do banco em string formatada para o input (Ex: 1500.5 -> "1.500,50")
 const formatToCurrencyString = (num) => {
   if (num === null || num === undefined || isNaN(num)) return '';
-  let v = (Number(num)).toFixed(2).replace('.', ',');
+  const isNegative = num < 0;
+  let v = Math.abs(num).toFixed(2).replace('.', ',');
   v = v.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
-  return v;
+  return isNegative ? '-' + v : v;
 };
 
-// Converte string do input de volta para float de banco (Ex: "1.500,50" -> 1500.50)
 const parseCurrency = (val) => {
   if (!val) return 0;
   if (typeof val === 'number') return val;
-  return parseFloat(val.replace(/\./g, '').replace(',', '.'));
+  const isNegative = String(val).includes('-');
+  const cleanVal = String(val).replace(/\./g, '').replace(',', '.').replace('-', '');
+  const parsed = parseFloat(cleanVal);
+  return isNegative ? -Math.abs(parsed) : Math.abs(parsed);
 };
 
-// Componente Universal de Input Financeiro (Máscara em Tempo Real)
 function CurrencyInput({ value, onChange, placeholder, className, required, disabled }) {
   const handleChange = (e) => {
-    let v = e.target.value.replace(/\D/g, ''); // Remove tudo que não for dígito
-    if (v === '') {
-      onChange('');
-      return;
-    }
+    let val = e.target.value;
+    const isNegative = val.startsWith('-');
+    let v = val.replace(/\D/g, ''); 
+    if (v === '') { onChange(''); return; }
     v = (parseInt(v, 10) / 100).toFixed(2).replace('.', ',');
     v = v.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+    if (isNegative) v = '-' + v;
     onChange(v);
   };
   return (
     <input 
-      type="text" 
-      value={value || ''} 
-      onChange={handleChange} 
-      placeholder={placeholder || "0,00"} 
-      className={className} 
-      required={required}
-      disabled={disabled}
+      type="text" value={value || ''} onChange={handleChange} 
+      placeholder={placeholder || "0,00"} className={className} 
+      required={required} disabled={disabled}
     />
   );
 }
 
 // ============================================================================
-// 2. ABA 1: GESTÃO ESTRUTURAL (ORÇAMENTO PMG + CONTRATOS)
+// 2. ABA 1: GESTÃO ESTRUTURAL (ORÇAMENTO PMG + CONTRATOS + ADITIVOS)
 // ============================================================================
 function AbaContratos() {
   const [empresas, setEmpresas] = useState([]);
@@ -109,18 +93,19 @@ function AbaContratos() {
   const [formEmpresa, setFormEmpresa] = useState({ razao_social: '', cnpj: '' });
   const [formObra, setFormObra] = useState({ codigo_obra: '', nome_obra: '' });
   
-  // Controle PMG (Edição)
   const initialOrcamentoState = { id: null, codigo_centro_custo: '', descricao_servico: '', valor_aprovado_teto: '' };
   const [formOrcamento, setFormOrcamento] = useState(initialOrcamentoState);
   const [isEditingOrcamento, setIsEditingOrcamento] = useState(false);
   
-  // Controle Contrato (Edição)
-  const initialContratoState = {
-    id: null, orcamento_pmg_id: '', codigo_contrato: '', razao_social: '', cnpj_fornecedor: '', 
-    data_inicio: '', data_fechamento: '', valor_inicial: '', valor_adiantamento_concedido: ''
-  };
+  const initialContratoState = { id: null, orcamento_pmg_id: '', codigo_contrato: '', razao_social: '', cnpj_fornecedor: '', data_inicio: '', data_fechamento: '', valor_inicial: '', valor_adiantamento_concedido: '' };
   const [formContrato, setFormContrato] = useState(initialContratoState);
   const [isEditingContrato, setIsEditingContrato] = useState(false);
+  
+  // ESTADOS PARA ADITIVOS
+  const [showModalAditivo, setShowModalAditivo] = useState(false);
+  const [selectedContratoForAditivo, setSelectedContratoForAditivo] = useState(null);
+  const [formAditivo, setFormAditivo] = useState({ numero_aditivo: '', data_assinatura: '', valor_acrescimo: '', motivo_justificativa: '' });
+
   const [buscaContrato, setBuscaContrato] = useState('');
 
   useEffect(() => { loadEmpresas(); }, []);
@@ -133,87 +118,84 @@ function AbaContratos() {
   async function loadEmpresas() { const { data } = await supabase.from('empresas').select('*').order('razao_social'); setEmpresas(data || []); }
   async function loadObras(empId) { const { data } = await supabase.from('obras').select('*').eq('empresa_id', empId).order('nome_obra'); setObras(data || []); }
   async function loadOrcamentos(obrId) { const { data } = await supabase.from('orcamento_pmg').select('*').eq('obra_id', obrId).order('codigo_centro_custo'); setOrcamentos(data || []); }
-  async function loadContratos(obrId) { const { data } = await supabase.from('contratos').select('*, orcamento_pmg(codigo_centro_custo, descricao_servico)').eq('obra_id', obrId).order('codigo_contrato'); setContratos(data || []); }
+  
+  // CARREGA CONTRATOS JUNTO COM OS SEUS ADITIVOS
+  async function loadContratos(obrId) { 
+    const { data } = await supabase.from('contratos')
+      .select('*, orcamento_pmg(codigo_centro_custo, descricao_servico), aditivos_contrato(*)')
+      .eq('obra_id', obrId)
+      .order('codigo_contrato'); 
+    setContratos(data || []); 
+  }
 
   const handleAddEmpresa = async (e) => { e.preventDefault(); const { error } = await supabase.from('empresas').insert([formEmpresa]); if (error) alert('Erro: ' + error.message); else { setFormEmpresa({ razao_social: '', cnpj: '' }); loadEmpresas(); } };
   const handleAddObra = async (e) => { e.preventDefault(); const { error } = await supabase.from('obras').insert([{ ...formObra, empresa_id: selectedEmpresaId }]); if (error) alert('Erro: ' + error.message); else { setFormObra({ codigo_obra: '', nome_obra: '' }); loadObras(selectedEmpresaId); } };
   
-  // ---- CRUD ORÇAMENTO PMG ----
   const handleAddOrUpdateOrcamento = async (e) => {
     e.preventDefault();
-    const payload = { 
-      obra_id: selectedObraId, 
-      codigo_centro_custo: formOrcamento.codigo_centro_custo,
-      descricao_servico: formOrcamento.descricao_servico,
-      valor_aprovado_teto: parseCurrency(formOrcamento.valor_aprovado_teto) 
-    };
-
+    const payload = { obra_id: selectedObraId, codigo_centro_custo: formOrcamento.codigo_centro_custo, descricao_servico: formOrcamento.descricao_servico, valor_aprovado_teto: parseCurrency(formOrcamento.valor_aprovado_teto) };
     if (isEditingOrcamento) {
       const { error } = await supabase.from('orcamento_pmg').update(payload).eq('id', formOrcamento.id);
-      if (error) alert('Erro ao atualizar Linha PMG: ' + error.message); else { handleCancelEditOrcamento(); loadOrcamentos(selectedObraId); }
+      if (error) alert('Erro ao atualizar: ' + error.message); else { handleCancelEditOrcamento(); loadOrcamentos(selectedObraId); }
     } else {
       const { error } = await supabase.from('orcamento_pmg').insert([payload]);
-      if (error) alert('Erro ao inserir Linha PMG: ' + error.message); else { handleCancelEditOrcamento(); loadOrcamentos(selectedObraId); }
+      if (error) alert('Erro ao inserir: ' + error.message); else { handleCancelEditOrcamento(); loadOrcamentos(selectedObraId); }
     }
   };
 
-  const handleEditOrcamentoClick = (orc) => {
-    setFormOrcamento({
-      id: orc.id,
-      codigo_centro_custo: orc.codigo_centro_custo,
-      descricao_servico: orc.descricao_servico,
-      valor_aprovado_teto: formatToCurrencyString(orc.valor_aprovado_teto)
-    });
-    setIsEditingOrcamento(true);
-  };
+  const handleEditOrcamentoClick = (orc) => { setFormOrcamento({ id: orc.id, codigo_centro_custo: orc.codigo_centro_custo, descricao_servico: orc.descricao_servico, valor_aprovado_teto: formatToCurrencyString(orc.valor_aprovado_teto) }); setIsEditingOrcamento(true); };
   const handleCancelEditOrcamento = () => { setFormOrcamento(initialOrcamentoState); setIsEditingOrcamento(false); };
 
-  // ---- CRUD CONTRATOS ----
   const handleAddOrUpdateContrato = async (e) => {
     e.preventDefault();
     const orcSelected = orcamentos.find(o => o.id === formContrato.orcamento_pmg_id);
-    if (!orcSelected) return alert("Selecione a Linha de Orçamento PMG (Centro de Custo).");
+    if (!orcSelected) return alert("Selecione a Linha de Orçamento PMG.");
 
     const payload = {
-      obra_id: selectedObraId,
-      orcamento_pmg_id: formContrato.orcamento_pmg_id,
-      codigo_contrato: formContrato.codigo_contrato,
-      razao_social: formContrato.razao_social,
-      cnpj_fornecedor: formContrato.cnpj_fornecedor,
-      centro_custo_raiz: orcSelected.codigo_centro_custo, 
-      descricao_servico: orcSelected.descricao_servico,
-      data_inicio: formContrato.data_inicio || null,
-      data_fechamento: formContrato.data_fechamento || null,
-      valor_inicial: parseCurrency(formContrato.valor_inicial),
-      valor_adiantamento_concedido: parseCurrency(formContrato.valor_adiantamento_concedido)
+      obra_id: selectedObraId, orcamento_pmg_id: formContrato.orcamento_pmg_id, codigo_contrato: formContrato.codigo_contrato,
+      razao_social: formContrato.razao_social, cnpj_fornecedor: formContrato.cnpj_fornecedor, centro_custo_raiz: orcSelected.codigo_centro_custo, 
+      descricao_servico: orcSelected.descricao_servico, data_inicio: formContrato.data_inicio || null, data_fechamento: formContrato.data_fechamento || null,
+      valor_inicial: parseCurrency(formContrato.valor_inicial), valor_adiantamento_concedido: parseCurrency(formContrato.valor_adiantamento_concedido)
     };
 
     if (isEditingContrato) {
       const { error } = await supabase.from('contratos').update(payload).eq('id', formContrato.id);
-      if (error) alert('Erro ao atualizar (Verifique Teto PMG): ' + error.message); else { handleCancelEdit(); loadContratos(selectedObraId); }
+      if (error) alert('Erro ao atualizar (Pode violar UNIQUE ou Teto): ' + error.message); else { handleCancelEdit(); loadContratos(selectedObraId); }
     } else {
       const { error } = await supabase.from('contratos').insert([payload]);
-      if (error) alert('Erro ao registar (Verifique Teto PMG): ' + error.message); else { handleCancelEdit(); loadContratos(selectedObraId); }
+      if (error) alert('Erro ao registar (Já existe este Código ou Estourou Teto): ' + error.message); else { handleCancelEdit(); loadContratos(selectedObraId); }
     }
   };
 
   const handleEditContratoClick = (c) => {
-    setFormContrato({
-      id: c.id,
-      orcamento_pmg_id: c.orcamento_pmg_id || '',
-      codigo_contrato: c.codigo_contrato || '',
-      razao_social: c.razao_social || '',
-      cnpj_fornecedor: c.cnpj_fornecedor || '',
-      data_inicio: c.data_inicio || '',
-      data_fechamento: c.data_fechamento || '',
-      valor_inicial: formatToCurrencyString(c.valor_inicial),
-      valor_adiantamento_concedido: formatToCurrencyString(c.valor_adiantamento_concedido)
-    });
-    setIsEditingContrato(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setFormContrato({ id: c.id, orcamento_pmg_id: c.orcamento_pmg_id || '', codigo_contrato: c.codigo_contrato || '', razao_social: c.razao_social || '', cnpj_fornecedor: c.cnpj_fornecedor || '', data_inicio: c.data_inicio || '', data_fechamento: c.data_fechamento || '', valor_inicial: formatToCurrencyString(c.valor_inicial), valor_adiantamento_concedido: formatToCurrencyString(c.valor_adiantamento_concedido) });
+    setIsEditingContrato(true); window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-
   const handleCancelEdit = () => { setFormContrato(initialContratoState); setIsEditingContrato(false); };
+
+  // SALVAR ADITIVO NO BANCO
+  const handleSaveAditivo = async (e) => {
+    e.preventDefault();
+    if (!selectedContratoForAditivo) return;
+    
+    const payload = {
+      contrato_id: selectedContratoForAditivo.id,
+      numero_aditivo: formAditivo.numero_aditivo,
+      data_assinatura: formAditivo.data_assinatura,
+      valor_acrescimo: parseCurrency(formAditivo.valor_acrescimo),
+      motivo_justificativa: formAditivo.motivo_justificativa
+    };
+
+    const { error } = await supabase.from('aditivos_contrato').insert([payload]);
+    if (error) {
+      alert('Erro ao registrar Aditivo: ' + error.message);
+    } else {
+      setShowModalAditivo(false);
+      setFormAditivo({ numero_aditivo: '', data_assinatura: '', valor_acrescimo: '', motivo_justificativa: '' });
+      setSelectedContratoForAditivo(null);
+      loadContratos(selectedObraId); // Recarrega para trazer o aditivo na cascata
+    }
+  };
 
   const linhaPmgSelecionada = orcamentos.find(o => o.id === formContrato.orcamento_pmg_id);
   const tetoAprovado = linhaPmgSelecionada ? parseFloat(linhaPmgSelecionada.valor_aprovado_teto) : 0;
@@ -229,6 +211,38 @@ function AbaContratos() {
 
   return (
     <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-6 pb-20">
+      
+      {/* MODAL DE ADITIVO (OVERLAY) */}
+      {showModalAditivo && selectedContratoForAditivo && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="font-black text-slate-800 flex items-center gap-2"><Plus size={16}/> Novo Aditivo Contratual</h3>
+                <p className="text-[10px] text-slate-500 font-bold mt-1">Ref: {selectedContratoForAditivo.codigo_contrato}</p>
+              </div>
+              <button onClick={() => setShowModalAditivo(false)} className="text-slate-400 hover:text-rose-500"><X size={20}/></button>
+            </div>
+            <form onSubmit={handleSaveAditivo} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Cód. Aditivo</label><input required placeholder="Ex: TA-01" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm font-semibold focus:border-blue-400 outline-none" value={formAditivo.numero_aditivo} onChange={e => setFormAditivo({...formAditivo, numero_aditivo: e.target.value})} /></div>
+                <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Assinatura</label><input required type="date" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 focus:border-blue-400 outline-none" value={formAditivo.data_assinatura} onChange={e => setFormAditivo({...formAditivo, data_assinatura: e.target.value})} /></div>
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-blue-600 uppercase ml-1 block mb-1">Valor do Acréscimo / Supressão</label>
+                <CurrencyInput required placeholder="Aceita valores negativos" className="w-full p-3 border border-blue-200 rounded-lg text-base font-black text-blue-900 bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500" value={formAditivo.valor_acrescimo} onChange={val => setFormAditivo({...formAditivo, valor_acrescimo: val})} />
+                <p className="text-[9px] text-slate-400 mt-1 ml-1">Use o sinal de menos (-) para supressões.</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Motivo / Justificativa</label>
+                <input required placeholder="Descreva brevemente..." className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:border-blue-400 outline-none" value={formAditivo.motivo_justificativa} onChange={e => setFormAditivo({...formAditivo, motivo_justificativa: e.target.value})} />
+              </div>
+              <button type="submit" className="w-full bg-slate-900 text-white p-3.5 rounded-xl text-sm font-black mt-2 hover:bg-slate-800 transition-colors">Confirmar Aditivo no Banco</button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <header className="mb-4">
         <h2 className="text-3xl font-black text-slate-900 tracking-tight">EAP e Contratação</h2>
         <p className="text-slate-500">Definição do Orçamento Base (PMG) e vínculo com fornecedores.</p>
@@ -305,12 +319,7 @@ function AbaContratos() {
             </div>
             <div>
               <span className="text-[9px] font-black text-blue-600 uppercase ml-1 block mb-1">Valor Aprovado (Capex)</span>
-              <CurrencyInput 
-                required 
-                className="w-full p-3 border border-blue-200 bg-blue-50/50 rounded-lg text-sm font-black text-blue-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400" 
-                value={formOrcamento.valor_aprovado_teto} 
-                onChange={val => setFormOrcamento({...formOrcamento, valor_aprovado_teto: val})} 
-              />
+              <CurrencyInput required className="w-full p-3 border border-blue-200 bg-blue-50/50 rounded-lg text-sm font-black text-blue-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400" value={formOrcamento.valor_aprovado_teto} onChange={val => setFormOrcamento({...formOrcamento, valor_aprovado_teto: val})} />
             </div>
             <button type="submit" className={`w-full text-white p-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${isEditingOrcamento ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
                {isEditingOrcamento ? 'Atualizar Linha PMG' : <><Plus size={16}/> Adicionar Linha PMG</>}
@@ -331,7 +340,7 @@ function AbaContratos() {
             )}
             
             <div className="grid grid-cols-2 gap-4 mb-4">
-              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Cód. Contrato</label><input required placeholder="Ex: CT-001" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm font-semibold focus:border-emerald-400 outline-none" value={formContrato.codigo_contrato} onChange={e => setFormContrato({...formContrato, codigo_contrato: e.target.value})} /></div>
+              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Cód. Contrato</label><input required placeholder="Ex: CT-001 (Para rateio use CT-001-A)" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm font-semibold focus:border-emerald-400 outline-none" value={formContrato.codigo_contrato} onChange={e => setFormContrato({...formContrato, codigo_contrato: e.target.value})} /></div>
               <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">CNPJ Fornecedor</label><input required placeholder="Apenas números" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:border-emerald-400 outline-none" value={formContrato.cnpj_fornecedor} onChange={e => setFormContrato({...formContrato, cnpj_fornecedor: e.target.value})} /></div>
             </div>
 
@@ -342,26 +351,17 @@ function AbaContratos() {
 
             <div className="grid grid-cols-2 gap-4 mb-6">
               <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data de Início</label><input required type="date" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 focus:border-emerald-400 outline-none" value={formContrato.data_inicio} onChange={e => setFormContrato({...formContrato, data_inicio: e.target.value})} /></div>
-              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data de Fechamento (Prevista)</label><input required type="date" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 focus:border-emerald-400 outline-none" value={formContrato.data_fechamento} onChange={e => setFormContrato({...formContrato, data_fechamento: e.target.value})} /></div>
+              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data de Fechamento</label><input required type="date" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 focus:border-emerald-400 outline-none" value={formContrato.data_fechamento} onChange={e => setFormContrato({...formContrato, data_fechamento: e.target.value})} /></div>
             </div>
 
             <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 border border-slate-100 rounded-xl">
               <div>
-                <label className="text-[10px] font-black text-emerald-600 uppercase ml-1 block mb-1">Valor Negociado (Teto Global)</label>
-                <CurrencyInput 
-                  required 
-                  className="w-full p-3 border border-emerald-300 rounded-lg text-base font-black text-emerald-900 bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500" 
-                  value={formContrato.valor_inicial} 
-                  onChange={val => setFormContrato({...formContrato, valor_inicial: val})} 
-                />
+                <label className="text-[10px] font-black text-emerald-600 uppercase ml-1 block mb-1">Valor Negociado (Base)</label>
+                <CurrencyInput required className="w-full p-3 border border-emerald-300 rounded-lg text-base font-black text-emerald-900 bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500" value={formContrato.valor_inicial} onChange={val => setFormContrato({...formContrato, valor_inicial: val})} />
               </div>
               <div>
-                <label className="text-[10px] font-black text-amber-500 uppercase ml-1 block mb-1">Adiantamento de Caixa (Sinal)</label>
-                <CurrencyInput 
-                  className="w-full p-3 border border-amber-200 rounded-lg text-base font-black text-amber-800 bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400" 
-                  value={formContrato.valor_adiantamento_concedido} 
-                  onChange={val => setFormContrato({...formContrato, valor_adiantamento_concedido: val})} 
-                />
+                <label className="text-[10px] font-black text-amber-500 uppercase ml-1 block mb-1">Adiantamento de Caixa</label>
+                <CurrencyInput className="w-full p-3 border border-amber-200 rounded-lg text-base font-black text-amber-800 bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400" value={formContrato.valor_adiantamento_concedido} onChange={val => setFormContrato({...formContrato, valor_adiantamento_concedido: val})} />
               </div>
             </div>
 
@@ -369,7 +369,7 @@ function AbaContratos() {
               <div className="mb-4 p-4 bg-blue-50/50 border border-blue-100 rounded-xl">
                  <label className="text-[11px] font-black text-blue-800 uppercase mb-2 flex items-center gap-2"><ListTree size={14}/> Vincular à Linha do PMG (Centro de Custo)</label>
                  <select required className="w-full p-3 bg-white border border-blue-300 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm cursor-pointer" value={formContrato.orcamento_pmg_id} onChange={e => setFormContrato({...formContrato, orcamento_pmg_id: e.target.value})}>
-                   <option value="">-- Selecione onde alocar este custo financeiro --</option>
+                   <option value="">-- Selecione onde alocar este custo --</option>
                    {orcamentos.map(orc => <option key={orc.id} value={orc.id}>{orc.codigo_centro_custo} - {orc.descricao_servico} (Teto PMG: {formatMoney(orc.valor_aprovado_teto)})</option>)}
                  </select>
               </div>
@@ -396,7 +396,7 @@ function AbaContratos() {
                 </div>
               )}
 
-              <button type="submit" disabled={saveGerado < 0 && !isEditingContrato} className={`w-full text-white p-4 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex justify-center items-center gap-2 ${saveGerado < 0 && !isEditingContrato ? 'bg-slate-200 cursor-not-allowed text-slate-400' : (isEditingContrato ? 'bg-amber-500 hover:bg-amber-600 shadow-lg shadow-amber-500/30' : 'bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/30')}`}>
+              <button type="submit" className={`w-full text-white p-4 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex justify-center items-center gap-2 ${isEditingContrato ? 'bg-amber-500 hover:bg-amber-600 shadow-lg shadow-amber-500/30' : 'bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/30'}`}>
                 {isEditingContrato ? 'Gravar Alterações do Contrato' : 'Aprovar e Gravar Contrato'} <ArrowRight size={18}/>
               </button>
             </div>
@@ -404,32 +404,23 @@ function AbaContratos() {
         </div>
       </div>
 
+      {/* =====================================================================
+          LINHA 3: VISUALIZAÇÃO E BUSCA DE CONTRATOS E ADITIVOS
+      ===================================================================== */}
       <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-500 ${!selectedObraId ? 'opacity-30 pointer-events-none grayscale blur-[2px]' : ''}`}>
         <div className="p-6 bg-slate-900 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3 text-white">
             <div className="p-2 bg-slate-800 rounded-lg"><Database size={20} className="text-blue-400"/></div>
             <div>
-              <h3 className="font-black text-lg">Banco de Contratos</h3>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{contratosFiltrados.length} Registos Encontrados</p>
+              <h3 className="font-black text-lg">Banco de Contratos & Aditivos</h3>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{contratosFiltrados.length} Contratos Encontrados</p>
             </div>
           </div>
           
           <div className="relative w-full md:w-96">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search size={16} className="text-slate-400"/>
-            </div>
-            <input 
-              type="text" 
-              placeholder="Buscar por Fornecedor, Código ou PMG..." 
-              className="w-full pl-10 pr-4 py-3 bg-slate-800 border-none rounded-xl text-sm text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
-              value={buscaContrato}
-              onChange={(e) => setBuscaContrato(e.target.value)}
-            />
-            {buscaContrato && (
-              <button onClick={() => setBuscaContrato('')} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white">
-                <X size={16}/>
-              </button>
-            )}
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search size={16} className="text-slate-400"/></div>
+            <input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-3 bg-slate-800 border-none rounded-xl text-sm text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none" value={buscaContrato} onChange={(e) => setBuscaContrato(e.target.value)} />
+            {buscaContrato && <button onClick={() => setBuscaContrato('')} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"><X size={16}/></button>}
           </div>
         </div>
 
@@ -439,54 +430,58 @@ function AbaContratos() {
               <tr>
                 <th className="p-4 pl-6">Cód. Contrato</th>
                 <th className="p-4">Fornecedor</th>
-                <th className="p-4">Linha PMG (Centro Custo)</th>
+                <th className="p-4">Linha PMG (CC)</th>
                 <th className="p-4 text-center">Início / Fim</th>
-                <th className="p-4 text-right">Valor Teto (R$)</th>
-                <th className="p-4 text-center pr-6">Ação</th>
+                <th className="p-4 text-right">Teto Atualizado (R$)</th>
+                <th className="p-4 text-center pr-6">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {contratosFiltrados.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="p-12 text-center text-slate-400">
-                    <Database size={48} className="mx-auto mb-4 opacity-20"/>
-                    <p className="text-base font-bold text-slate-500">Nenhum contrato encontrado.</p>
-                    {buscaContrato && <p className="text-xs mt-1">Limpe a busca para ver todos os registos.</p>}
-                  </td>
-                </tr>
+                <tr><td colSpan="6" className="p-12 text-center text-slate-400"><Database size={48} className="mx-auto mb-4 opacity-20"/><p className="text-base font-bold text-slate-500">Nenhum contrato encontrado.</p></td></tr>
               ) : (
-                contratosFiltrados.map(c => (
-                  <tr key={c.id} className={`transition-colors hover:bg-slate-50 ${formContrato.id === c.id ? 'bg-amber-50/50' : ''}`}>
-                    <td className="p-4 pl-6 font-black text-slate-900">{c.codigo_contrato}</td>
-                    <td className="p-4">
-                      <p className="font-bold text-slate-800 truncate max-w-[200px]" title={c.razao_social}>{c.razao_social}</p>
-                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">CNPJ: {c.cnpj_fornecedor}</p>
-                    </td>
-                    <td className="p-4">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200">
-                        {c.centro_custo_raiz}
-                      </span>
-                    </td>
-                    <td className="p-4 text-center text-xs text-slate-500 font-bold">
-                      {formatDate(c.data_inicio)} <ArrowRight size={10} className="inline mx-1 opacity-50"/> {formatDate(c.data_fechamento)}
-                    </td>
-                    <td className="p-4 text-right">
-                      <p className="font-black text-slate-900">{formatMoney(c.valor_inicial)}</p>
-                      {c.valor_adiantamento_concedido > 0 && (
-                        <p className="text-[9px] text-amber-600 font-bold uppercase mt-0.5">Adiant: {formatMoney(c.valor_adiantamento_concedido)}</p>
-                      )}
-                    </td>
-                    <td className="p-4 pr-6 text-center">
-                      <button 
-                        onClick={() => handleEditContratoClick(c)} 
-                        className={`inline-flex items-center justify-center p-2 rounded-lg transition-colors ${formContrato.id === c.id ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-blue-100 hover:text-blue-700'}`}
-                        title="Editar Contrato"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                contratosFiltrados.map(c => {
+                  const totalAditivos = c.aditivos_contrato?.reduce((acc, a) => acc + Number(a.valor_acrescimo), 0) || 0;
+                  const tetoAtualizado = Number(c.valor_inicial) + totalAditivos;
+                  const temAditivos = c.aditivos_contrato && c.aditivos_contrato.length > 0;
+
+                  return (
+                    <React.Fragment key={c.id}>
+                      {/* LINHA DO CONTRATO PAI */}
+                      <tr className={`transition-colors hover:bg-slate-50 ${formContrato.id === c.id ? 'bg-amber-50/50' : ''}`}>
+                        <td className="p-4 pl-6 font-black text-slate-900">{c.codigo_contrato}</td>
+                        <td className="p-4"><p className="font-bold text-slate-800 truncate max-w-[200px]">{c.razao_social}</p><p className="text-[10px] text-slate-400 font-mono mt-0.5">CNPJ: {c.cnpj_fornecedor}</p></td>
+                        <td className="p-4"><span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200">{c.centro_custo_raiz}</span></td>
+                        <td className="p-4 text-center text-xs text-slate-500 font-bold">{formatDate(c.data_inicio)} <ArrowRight size={10} className="inline mx-1 opacity-50"/> {formatDate(c.data_fechamento)}</td>
+                        <td className="p-4 text-right">
+                          <p className="font-black text-slate-900 text-base">{formatMoney(tetoAtualizado)}</p>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Base: {formatMoney(c.valor_inicial)}</p>
+                        </td>
+                        <td className="p-4 pr-6 text-center space-x-2 whitespace-nowrap">
+                          <button onClick={() => { setSelectedContratoForAditivo(c); setShowModalAditivo(true); }} className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-800 hover:text-white transition-colors text-[10px] font-black uppercase tracking-wider" title="Lançar Aditivo ou Supressão">
+                            <Plus size={12}/> Aditivo
+                          </button>
+                          <button onClick={() => handleEditContratoClick(c)} className={`inline-flex p-1.5 rounded-lg transition-colors ${formContrato.id === c.id ? 'bg-amber-500 text-white' : 'bg-white border border-slate-200 text-slate-500 hover:bg-amber-100 hover:text-amber-700 hover:border-amber-300'}`} title="Editar Contrato">
+                            <Pencil size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                      
+                      {/* LINHAS DE ADITIVOS (CASCATA) */}
+                      {temAditivos && c.aditivos_contrato.map(aditivo => (
+                        <tr key={aditivo.id} className="bg-slate-50/50 border-none">
+                          <td className="p-2 pl-12 text-[11px] font-black text-slate-500 flex items-center gap-2 border-l-2 border-slate-300 ml-6"><History size={12} className="opacity-50"/> {aditivo.numero_aditivo}</td>
+                          <td className="p-2 text-[11px] text-slate-500 truncate" colSpan="2">{aditivo.motivo_justificativa}</td>
+                          <td className="p-2 text-center text-[10px] text-slate-400 font-bold">Assinatura: {formatDate(aditivo.data_assinatura)}</td>
+                          <td className={`p-2 text-right text-xs font-black pr-4 ${aditivo.valor_acrescimo >= 0 ? 'text-slate-700' : 'text-rose-600'}`}>
+                            {aditivo.valor_acrescimo > 0 ? '+' : ''}{formatMoney(aditivo.valor_acrescimo)}
+                          </td>
+                          <td></td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -496,6 +491,9 @@ function AbaContratos() {
   );
 }
 
+// ============================================================================
+// 3. ABA 2: ENGENHARIA (MÓDULOS INTACTOS)
+// ============================================================================
 function AbaEngenharia() {
   const [empresas, setEmpresas] = useState([]);
   const [obras, setObras] = useState([]);
@@ -737,7 +735,7 @@ function AbaLotes() {
 export default function App() {
   const [activeTab, setActiveTab] = useState('contratos');
   const [isConnected, setIsConnected] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // NOVO: Controle da Sidebar
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
     async function checkConnection() {
@@ -754,8 +752,6 @@ export default function App() {
       
       {/* SIDEBAR COM LÓGICA DE RECOLHIMENTO */}
       <aside className={`${isSidebarOpen ? 'w-72' : 'w-20'} bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-20 shrink-0 transition-all duration-300 relative`}>
-        
-        {/* Header da Sidebar */}
         <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800 bg-slate-950/50 overflow-hidden">
           {isSidebarOpen && (
             <div className="flex items-center gap-3 whitespace-nowrap animate-in fade-in">
@@ -769,12 +765,7 @@ export default function App() {
           {!isSidebarOpen && <ShieldCheck className="text-emerald-500 mx-auto shrink-0" size={24} />}
         </div>
         
-        {/* Botão de Toggle sobreposto à borda */}
-        <button 
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute top-6 -right-3 bg-slate-800 border border-slate-700 text-white p-1 rounded-full hover:bg-emerald-500 hover:border-emerald-400 transition-colors z-30"
-          title={isSidebarOpen ? "Recolher Menu" : "Expandir Menu"}
-        >
+        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="absolute top-6 -right-3 bg-slate-800 border border-slate-700 text-white p-1 rounded-full hover:bg-emerald-500 hover:border-emerald-400 transition-colors z-30" title={isSidebarOpen ? "Recolher Menu" : "Expandir Menu"}>
           <Menu size={16} />
         </button>
 
