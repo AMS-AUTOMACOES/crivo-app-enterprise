@@ -322,15 +322,38 @@ function AbaLotes() {
 
   const handleExportarExcel = (lote) => {
     if (!lote.documentos_fiscais || lote.documentos_fiscais.length === 0) return alert('Lote vazio.');
+    
     const dadosExcel = lote.documentos_fiscais.map(nf => {
-      const liq = Number(nf.valor_bruto) - Number(nf.valor_retencao_tecnica || 0) - Number(nf.valor_amortizado_adiantamento || 0) - Number(nf.impostos_destacados || 0);
+      // Cálculo absoluto e exato baseado na regra exigida
+      const bruto = Number(nf.valor_bruto || 0);
+      const impostos = Number(nf.impostos_destacados || 0);
+      const retencao = Number(nf.valor_retencao_tecnica || 0);
+      const adiantamento = Number(nf.valor_amortizado_adiantamento || 0);
+      const juros = Number(nf.juros_multas || 0);
+      
+      const liq = bruto - impostos - retencao - adiantamento + juros;
+
+      // Colunas ordenadas estritamente conforme o modelo fornecido
       return {
-        'Nº ROMANEIO': lote.codigo_lote, 'DATA FECHAMENTO': formatDate(lote.data_geracao), 'RAZÃO SOCIAL FORNECEDOR': nf.contratos.razao_social,
-        'CNPJ': nf.contratos.cnpj_fornecedor, 'Nº NOTA FISCAL': nf.numero_documento, 'TIPO': nf.tipo_documento,
-        'CENTRO DE CUSTO': nf.contratos.centro_custo_raiz, 'EMISSÃO': formatDate(nf.data_emissao), 'VENCIMENTO': formatDate(nf.data_vencimento),
-        'VALOR BRUTO (R$)': Number(nf.valor_bruto), 'LÍQUIDO A PAGAR (R$)': liq
+        'Nº ROMANEIO': lote.codigo_lote,
+        'DATA FECHAMENTO': formatDate(lote.data_geracao),
+        'RAZÃO SOCIAL FORNECEDOR': nf.contratos?.razao_social || '',
+        'CNPJ': nf.contratos?.cnpj_fornecedor || '',
+        'Nº NOTA FISCAL': nf.numero_documento,
+        'TIPO': nf.tipo_documento,
+        'CENTRO DE CUSTO': nf.contratos?.centro_custo_raiz || '',
+        'EMISSÃO': formatDate(nf.data_emissao),
+        'VENCIMENTO': formatDate(nf.data_vencimento),
+        'VALOR BRUTO (R$)': bruto,
+        'VALOR DE IMPOSTOS': impostos,
+        'VALOR DE RETENÇÃO': retencao,
+        'DESCONTO ADIANTAMENTO/SINAL': adiantamento,
+        'VALOR DE JUROS E MULTAS': juros,
+        'LÍQUIDO A PAGAR (R$)': liq,
+        'FORMA DE PAGAMENTO': '' // Campo livre deixado em branco para flexibilidade do cliente
       };
     });
+    
     const worksheet = XLSX.utils.json_to_sheet(dadosExcel);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Romaneio LYON");
