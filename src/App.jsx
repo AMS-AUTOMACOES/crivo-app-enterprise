@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import * as XLSX from 'xlsx';
 import { 
   Building2, 
   HardHat, 
@@ -18,15 +20,23 @@ import {
   FileSpreadsheet,
   Pencil,
   X,
-  ListTree
+  ListTree,
+  Search
 } from 'lucide-react';
 
-// --- 2. DESCOMENTE ESTAS 4 LINHAS DE PRODUÇÃO NO STACKBLITZ ---
-import { createClient } from '@supabase/supabase-js';
-import * as XLSX from 'xlsx';
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 // ============================================================================
+// 1. CONEXÃO COM O MOTOR (SUPABASE) - PRODUÇÃO PURA
+// ============================================================================
+const getEnv = (key) => {
+  try {
+    return typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env[key] : '';
+  } catch (e) {
+    return '';
+  }
+};
+
+const supabaseUrl = getEnv('VITE_SUPABASE_URL') || 'https://mock.supabase.co';
+const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY') || 'mock-key';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -53,7 +63,6 @@ function AbaContratos() {
   const [formObra, setFormObra] = useState({ codigo_obra: '', nome_obra: '' });
   const [formOrcamento, setFormOrcamento] = useState({ codigo_centro_custo: '', descricao_servico: '', valor_aprovado_teto: '' });
   
-  // O SUPER FORMULÁRIO DE CONTRATO
   const initialContratoState = {
     id: null,
     orcamento_pmg_id: '',
@@ -62,6 +71,7 @@ function AbaContratos() {
   };
   const [formContrato, setFormContrato] = useState(initialContratoState);
   const [isEditingContrato, setIsEditingContrato] = useState(false);
+  const [buscaContrato, setBuscaContrato] = useState('');
 
   useEffect(() => { loadEmpresas(); }, []);
   useEffect(() => { if (selectedEmpresaId) loadObras(selectedEmpresaId); else { setObras([]); setSelectedObraId(''); } }, [selectedEmpresaId]);
@@ -70,10 +80,10 @@ function AbaContratos() {
     else { setOrcamentos([]); setContratos([]); } 
   }, [selectedObraId]);
 
-  async function loadEmpresas() { if(supabaseUrl==='mock')return; const { data } = await supabase.from('empresas').select('*').order('razao_social'); setEmpresas(data || []); }
-  async function loadObras(empId) { if(supabaseUrl==='mock')return; const { data } = await supabase.from('obras').select('*').eq('empresa_id', empId).order('nome_obra'); setObras(data || []); }
-  async function loadOrcamentos(obrId) { if(supabaseUrl==='mock')return; const { data } = await supabase.from('orcamento_pmg').select('*').eq('obra_id', obrId).order('codigo_centro_custo'); setOrcamentos(data || []); }
-  async function loadContratos(obrId) { if(supabaseUrl==='mock')return; const { data } = await supabase.from('contratos').select('*, orcamento_pmg(codigo_centro_custo, descricao_servico)').eq('obra_id', obrId).order('codigo_contrato'); setContratos(data || []); }
+  async function loadEmpresas() { const { data } = await supabase.from('empresas').select('*').order('razao_social'); setEmpresas(data || []); }
+  async function loadObras(empId) { const { data } = await supabase.from('obras').select('*').eq('empresa_id', empId).order('nome_obra'); setObras(data || []); }
+  async function loadOrcamentos(obrId) { const { data } = await supabase.from('orcamento_pmg').select('*').eq('obra_id', obrId).order('codigo_centro_custo'); setOrcamentos(data || []); }
+  async function loadContratos(obrId) { const { data } = await supabase.from('contratos').select('*, orcamento_pmg(codigo_centro_custo, descricao_servico)').eq('obra_id', obrId).order('codigo_contrato'); setContratos(data || []); }
 
   const handleAddEmpresa = async (e) => { e.preventDefault(); const { error } = await supabase.from('empresas').insert([formEmpresa]); if (error) alert('Erro: ' + error.message); else { setFormEmpresa({ razao_social: '', cnpj: '' }); loadEmpresas(); } };
   const handleAddObra = async (e) => { e.preventDefault(); const { error } = await supabase.from('obras').insert([{ ...formObra, empresa_id: selectedEmpresaId }]); if (error) alert('Erro: ' + error.message); else { setFormObra({ codigo_obra: '', nome_obra: '' }); loadObras(selectedEmpresaId); } };
@@ -98,6 +108,7 @@ function AbaContratos() {
       valor_adiantamento_concedido: c.valor_adiantamento_concedido || ''
     });
     setIsEditingContrato(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCancelEdit = () => { setFormContrato(initialContratoState); setIsEditingContrato(false); };
@@ -113,7 +124,7 @@ function AbaContratos() {
       codigo_contrato: formContrato.codigo_contrato,
       razao_social: formContrato.razao_social,
       cnpj_fornecedor: formContrato.cnpj_fornecedor,
-      centro_custo_raiz: orcSelected.codigo_centro_custo, // Mantém retrocompatibilidade com o banco antigo
+      centro_custo_raiz: orcSelected.codigo_centro_custo, 
       descricao_servico: orcSelected.descricao_servico,
       data_inicio: formContrato.data_inicio || null,
       data_fechamento: formContrato.data_fechamento || null,
@@ -130,166 +141,261 @@ function AbaContratos() {
     }
   };
 
-  // CÁLCULO DINÂMICO DO SAVE
   const linhaPmgSelecionada = orcamentos.find(o => o.id === formContrato.orcamento_pmg_id);
   const tetoAprovado = linhaPmgSelecionada ? parseFloat(linhaPmgSelecionada.valor_aprovado_teto) : 0;
-  // Soma os outros contratos já atrelados a esta linha do PMG
   const somaOutrosContratos = contratos.filter(c => c.orcamento_pmg_id === formContrato.orcamento_pmg_id && c.id !== formContrato.id).reduce((acc, c) => acc + Number(c.valor_inicial), 0);
   const valorDigitado = parseFloat(formContrato.valor_inicial || 0);
   const saveGerado = tetoAprovado - somaOutrosContratos - valorDigitado;
 
-  return (
-    <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-8">
-      <header><h2 className="text-3xl font-black text-slate-900 tracking-tight">EAP e Contratação</h2><p className="text-slate-500">Definição do Orçamento Base (PMG) e vínculo com fornecedores.</p></header>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* COLUNA 1: SETUP (Span 3) */}
-        <div className="lg:col-span-3 space-y-6">
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-            <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest mb-4 flex items-center gap-2"><Building2 size={16}/> 1. Investidor</h3>
-            <select className="w-full mb-4 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none" value={selectedEmpresaId} onChange={e => setSelectedEmpresaId(e.target.value)}><option value="">-- Selecionar --</option>{empresas.map(emp => <option key={emp.id} value={emp.id}>{emp.razao_social}</option>)}</select>
-            <form onSubmit={handleAddEmpresa} className="space-y-2 pt-4 border-t border-slate-100"><input required placeholder="Nome do Grupo" className="w-full p-2 border border-slate-200 rounded-lg text-xs" value={formEmpresa.razao_social} onChange={e => setFormEmpresa({...formEmpresa, razao_social: e.target.value})} /><input required placeholder="CNPJ" className="w-full p-2 border border-slate-200 rounded-lg text-xs" value={formEmpresa.cnpj} onChange={e => setFormEmpresa({...formEmpresa, cnpj: e.target.value})} /><button type="submit" className="w-full bg-slate-900 text-white p-2 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-800">Criar Empresa</button></form>
-          </div>
-          
-          <div className={`bg-white p-5 rounded-2xl shadow-sm border border-slate-200 ${!selectedEmpresaId ? 'opacity-30 pointer-events-none' : ''}`}>
-            <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest mb-4 flex items-center gap-2"><HardHat size={16}/> 2. Empreendimento</h3>
-            <select className="w-full mb-4 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none" value={selectedObraId} onChange={e => setSelectedObraId(e.target.value)}><option value="">-- Selecionar --</option>{obras.map(o => <option key={o.id} value={o.id}>{o.codigo_obra} - {o.nome_obra}</option>)}</select>
-            <form onSubmit={handleAddObra} className="space-y-2 pt-4 border-t border-slate-100"><input required placeholder="Cód. Obra" className="w-full p-2 border border-slate-200 rounded-lg text-xs" value={formObra.codigo_obra} onChange={e => setFormObra({...formObra, codigo_obra: e.target.value})} /><input required placeholder="Nome do Projeto" className="w-full p-2 border border-slate-200 rounded-lg text-xs" value={formObra.nome_obra} onChange={e => setFormObra({...formObra, nome_obra: e.target.value})} /><button type="submit" className="w-full bg-slate-900 text-white p-2 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-800">Criar Obra</button></form>
-          </div>
-        </div>
+  const contratosFiltrados = contratos.filter(c => 
+    (c.razao_social && c.razao_social.toLowerCase().includes(buscaContrato.toLowerCase())) ||
+    (c.codigo_contrato && c.codigo_contrato.toLowerCase().includes(buscaContrato.toLowerCase())) ||
+    (c.centro_custo_raiz && c.centro_custo_raiz.toLowerCase().includes(buscaContrato.toLowerCase()))
+  );
 
-        {/* COLUNA 2: LINHA BASE PMG (Span 4) */}
-        <div className={`lg:col-span-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 ${!selectedObraId ? 'opacity-30 pointer-events-none grayscale' : ''}`}>
+  return (
+    <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-6 pb-20">
+      <header className="mb-4">
+        <h2 className="text-3xl font-black text-slate-900 tracking-tight">EAP e Contratação</h2>
+        <p className="text-slate-500">Definição do Orçamento Base (PMG) e vínculo com fornecedores.</p>
+      </header>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+          <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest mb-4 flex items-center gap-2"><Building2 size={16}/> 1. Investidor</h3>
+          <select className="w-full mb-4 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500" value={selectedEmpresaId} onChange={e => setSelectedEmpresaId(e.target.value)}>
+            <option value="">-- Selecionar Investidor --</option>
+            {empresas.map(emp => <option key={emp.id} value={emp.id}>{emp.razao_social}</option>)}
+          </select>
+          <form onSubmit={handleAddEmpresa} className="flex gap-2 pt-4 border-t border-slate-100">
+            <input required placeholder="Nome do Grupo" className="flex-1 p-2 border border-slate-200 rounded-lg text-xs" value={formEmpresa.razao_social} onChange={e => setFormEmpresa({...formEmpresa, razao_social: e.target.value})} />
+            <input required placeholder="CNPJ" className="w-32 p-2 border border-slate-200 rounded-lg text-xs" value={formEmpresa.cnpj} onChange={e => setFormEmpresa({...formEmpresa, cnpj: e.target.value})} />
+            <button type="submit" className="bg-slate-900 text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-800 transition-colors">Criar</button>
+          </form>
+        </div>
+        
+        <div className={`bg-white p-5 rounded-2xl shadow-sm border border-slate-200 transition-all ${!selectedEmpresaId ? 'opacity-30 pointer-events-none' : ''}`}>
+          <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest mb-4 flex items-center gap-2"><HardHat size={16}/> 2. Empreendimento (Obra)</h3>
+          <select className="w-full mb-4 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500" value={selectedObraId} onChange={e => setSelectedObraId(e.target.value)}>
+            <option value="">-- Selecionar Obra --</option>
+            {obras.map(o => <option key={o.id} value={o.id}>{o.codigo_obra} - {o.nome_obra}</option>)}
+          </select>
+          <form onSubmit={handleAddObra} className="flex gap-2 pt-4 border-t border-slate-100">
+            <input required placeholder="Cód. Obra" className="w-24 p-2 border border-slate-200 rounded-lg text-xs" value={formObra.codigo_obra} onChange={e => setFormObra({...formObra, codigo_obra: e.target.value})} />
+            <input required placeholder="Nome do Projeto" className="flex-1 p-2 border border-slate-200 rounded-lg text-xs" value={formObra.nome_obra} onChange={e => setFormObra({...formObra, nome_obra: e.target.value})} />
+            <button type="submit" className="bg-slate-900 text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-800 transition-colors">Criar</button>
+          </form>
+        </div>
+      </div>
+
+      <div className={`grid grid-cols-1 xl:grid-cols-12 gap-6 transition-all duration-500 ${!selectedObraId ? 'opacity-30 pointer-events-none grayscale blur-[2px]' : ''}`}>
+        
+        <div className="xl:col-span-5 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full">
           <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest mb-6 flex items-center gap-2"><ListTree size={16} className="text-blue-600"/> 3. Linha Base PMG (EAP)</h3>
           
-          <div className="space-y-2 mb-6 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-            {orcamentos.length === 0 && <p className="text-[11px] text-slate-400 text-center py-4 border border-dashed border-slate-200 rounded-lg">Nenhum Centro de Custo inserido.</p>}
+          <div className="flex-1 space-y-2 mb-6 min-h-[250px] max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
+            {orcamentos.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-100 rounded-xl p-6">
+                <p className="text-sm font-bold text-center">Estrutura EAP Vazia.</p>
+                <p className="text-xs text-center mt-1">Insira as rubricas do orçamento aprovado abaixo.</p>
+              </div>
+            )}
             {orcamentos.map(orc => (
-              <div key={orc.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex justify-between items-center hover:border-blue-300 transition-colors">
+              <div key={orc.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center hover:border-blue-300 transition-colors group">
                 <div className="truncate pr-2">
-                  <span className="text-[10px] font-black text-white bg-slate-800 px-1.5 py-0.5 rounded">{orc.codigo_centro_custo}</span>
-                  <p className="text-[10px] text-slate-600 font-bold truncate mt-1">{orc.descricao_servico}</p>
+                  <span className="text-[10px] font-black text-white bg-slate-800 px-2 py-0.5 rounded-md">{orc.codigo_centro_custo}</span>
+                  <p className="text-[11px] text-slate-700 font-bold truncate mt-1.5">{orc.descricao_servico}</p>
                 </div>
                 <div className="text-right shrink-0">
-                   <p className="text-[9px] font-black text-slate-400 uppercase leading-none">Aprovado</p>
-                   <p className="text-xs font-black text-blue-700">{formatMoney(orc.valor_aprovado_teto)}</p>
+                   <p className="text-[9px] font-black text-slate-400 uppercase leading-none mb-0.5">Teto Aprovado</p>
+                   <p className="text-sm font-black text-blue-700">{formatMoney(orc.valor_aprovado_teto)}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <form onSubmit={handleAddOrcamento} className="space-y-3 pt-6 border-t border-slate-100">
+          <form onSubmit={handleAddOrcamento} className="space-y-3 pt-5 border-t border-slate-100 mt-auto">
             <div className="grid grid-cols-3 gap-2">
-               <div className="col-span-1"><input required placeholder="Cód (Ex: 01.01)" className="w-full p-2 border border-slate-200 rounded-lg text-xs font-bold" value={formOrcamento.codigo_centro_custo} onChange={e => setFormOrcamento({...formOrcamento, codigo_centro_custo: e.target.value})} /></div>
-               <div className="col-span-2"><input required placeholder="Descrição (Ex: Fundação)" className="w-full p-2 border border-slate-200 rounded-lg text-xs" value={formOrcamento.descricao_servico} onChange={e => setFormOrcamento({...formOrcamento, descricao_servico: e.target.value})} /></div>
+               <div className="col-span-1"><input required placeholder="Cód (Ex: 01.01)" className="w-full p-2.5 border border-slate-200 rounded-lg text-xs font-bold focus:border-blue-400 outline-none" value={formOrcamento.codigo_centro_custo} onChange={e => setFormOrcamento({...formOrcamento, codigo_centro_custo: e.target.value})} /></div>
+               <div className="col-span-2"><input required placeholder="Descrição (Ex: Fundação)" className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:border-blue-400 outline-none" value={formOrcamento.descricao_servico} onChange={e => setFormOrcamento({...formOrcamento, descricao_servico: e.target.value})} /></div>
             </div>
             <div>
-              <span className="text-[9px] font-black text-blue-600 uppercase ml-1">Valor Aprovado (Capex)</span>
-              <input required type="number" step="0.01" className="w-full p-2 border border-blue-200 bg-blue-50/30 rounded-lg text-sm font-black text-blue-900 focus:outline-none focus:border-blue-400" value={formOrcamento.valor_aprovado_teto} onChange={e => setFormOrcamento({...formOrcamento, valor_aprovado_teto: e.target.value})} />
+              <span className="text-[9px] font-black text-blue-600 uppercase ml-1 block mb-1">Valor Aprovado (Capex)</span>
+              <input required type="number" step="0.01" placeholder="R$ 0,00" className="w-full p-3 border border-blue-200 bg-blue-50/50 rounded-lg text-sm font-black text-blue-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400" value={formOrcamento.valor_aprovado_teto} onChange={e => setFormOrcamento({...formOrcamento, valor_aprovado_teto: e.target.value})} />
             </div>
-            <button type="submit" className="w-full bg-blue-600 text-white p-2.5 rounded-lg text-[11px] font-bold hover:bg-blue-700 flex items-center justify-center gap-2"><Plus size={14}/> Adicionar Linha PMG</button>
+            <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-blue-700 flex items-center justify-center gap-2 transition-shadow hover:shadow-lg hover:shadow-blue-600/20"><Plus size={16}/> Adicionar Linha PMG</button>
           </form>
         </div>
 
-        {/* COLUNA 3: CONTRATOS E SAVE (Span 5) */}
-        <div className={`lg:col-span-5 bg-white p-6 rounded-2xl shadow-xl border-t-4 border-t-emerald-500 border-x border-b border-slate-200 ${!selectedObraId ? 'opacity-30 pointer-events-none grayscale blur-sm' : ''}`}>
+        <div className="xl:col-span-7 bg-white p-6 rounded-2xl shadow-xl border-t-4 border-t-emerald-500 border-x border-b border-slate-200 h-full">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest flex items-center gap-2"><FolderLock size={16} className="text-emerald-600"/> 4. Contratos & SAVE</h3>
-            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-1 rounded">{contratos.length} Ativos</span>
+            <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest flex items-center gap-2"><FolderLock size={16} className="text-emerald-600"/> 4. Formulário de Contrato</h3>
           </div>
 
-          {/* LISTA DE CONTRATOS */}
-          <div className="space-y-2 mb-6 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
-            {contratos.length === 0 && <p className="text-xs text-slate-400 text-center py-4 border border-dashed border-slate-200 rounded-lg">Nenhum contrato ativo.</p>}
-            {contratos.map(c => (
-              <div key={c.id} className={`p-3 border rounded-xl flex justify-between items-center transition-colors ${formContrato.id === c.id ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200 hover:border-slate-300'}`}>
-                <div className="flex-1 overflow-hidden pr-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-black text-slate-900">{c.codigo_contrato}</span>
-                    <span className="text-[9px] bg-white border border-slate-200 px-1.5 py-0.5 rounded font-bold text-emerald-700">{c.centro_custo_raiz}</span>
-                  </div>
-                  <p className="text-[10px] text-slate-600 font-bold truncate">{c.razao_social}</p>
-                </div>
-                <div className="text-right mx-2">
-                   <p className="text-[9px] font-black text-slate-400 uppercase leading-none mb-0.5">Negociado</p>
-                   <p className="text-[11px] font-black text-slate-900">{formatMoney(c.valor_inicial)}</p>
-                </div>
-                <button onClick={() => handleEditContratoClick(c)} className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-emerald-100 hover:text-emerald-700 transition-colors">
-                  <Pencil size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* FORMULÁRIO DE CONTRATO COMPLETO */}
-          <form onSubmit={handleAddOrUpdateContrato} className="pt-5 border-t border-slate-100 relative">
+          <form onSubmit={handleAddOrUpdateContrato} className="relative flex flex-col h-[calc(100%-2rem)]">
             {isEditingContrato && (
-              <div className="absolute -top-3 left-0 bg-amber-400 text-amber-900 text-[9px] font-black uppercase px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                Editando Contrato <button type="button" onClick={handleCancelEdit}><X size={12}/></button>
+              <div className="absolute -top-12 right-0 bg-amber-400 text-amber-900 text-[10px] font-black uppercase px-4 py-2 rounded-full flex items-center gap-2 shadow-md animate-bounce">
+                Editando Contrato <button type="button" onClick={handleCancelEdit} className="hover:bg-amber-500 p-1 rounded-full"><X size={14}/></button>
               </div>
             )}
             
-            <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-               <label className="text-[10px] font-black text-slate-600 uppercase mb-1 block">Vincular à Linha do PMG (Centro de Custo)</label>
-               <select required className="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none" value={formContrato.orcamento_pmg_id} onChange={e => setFormContrato({...formContrato, orcamento_pmg_id: e.target.value})}>
-                 <option value="">-- Selecione onde alocar o custo --</option>
-                 {orcamentos.map(orc => <option key={orc.id} value={orc.id}>{orc.codigo_centro_custo} - {orc.descricao_servico} (Teto: {formatMoney(orc.valor_aprovado_teto)})</option>)}
-               </select>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Cód. Contrato</label><input required placeholder="Ex: CT-001" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm font-semibold focus:border-emerald-400 outline-none" value={formContrato.codigo_contrato} onChange={e => setFormContrato({...formContrato, codigo_contrato: e.target.value})} /></div>
+              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">CNPJ Fornecedor</label><input required placeholder="Apenas números" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:border-emerald-400 outline-none" value={formContrato.cnpj_fornecedor} onChange={e => setFormContrato({...formContrato, cnpj_fornecedor: e.target.value})} /></div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Cód. Contrato</label><input required className="w-full p-2 border border-slate-200 rounded-lg text-xs" value={formContrato.codigo_contrato} onChange={e => setFormContrato({...formContrato, codigo_contrato: e.target.value})} /></div>
-              <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1">CNPJ Fornecedor</label><input required className="w-full p-2 border border-slate-200 rounded-lg text-xs" value={formContrato.cnpj_fornecedor} onChange={e => setFormContrato({...formContrato, cnpj_fornecedor: e.target.value})} /></div>
+            <div className="mb-4">
+              <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Razão Social do Fornecedor</label>
+              <input required className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:border-emerald-400 outline-none" value={formContrato.razao_social} onChange={e => setFormContrato({...formContrato, razao_social: e.target.value})} />
             </div>
 
-            <div className="mb-3">
-              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Razão Social</label>
-              <input required className="w-full p-2 border border-slate-200 rounded-lg text-xs" value={formContrato.razao_social} onChange={e => setFormContrato({...formContrato, razao_social: e.target.value})} />
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data de Início</label><input required type="date" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 focus:border-emerald-400 outline-none" value={formContrato.data_inicio} onChange={e => setFormContrato({...formContrato, data_inicio: e.target.value})} /></div>
+              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data de Fechamento (Prevista)</label><input required type="date" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 focus:border-emerald-400 outline-none" value={formContrato.data_fechamento} onChange={e => setFormContrato({...formContrato, data_fechamento: e.target.value})} /></div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Início</label><input required type="date" className="w-full p-2 border border-slate-200 rounded-lg text-xs" value={formContrato.data_inicio} onChange={e => setFormContrato({...formContrato, data_inicio: e.target.value})} /></div>
-              <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Fim Previsto</label><input required type="date" className="w-full p-2 border border-slate-200 rounded-lg text-xs" value={formContrato.data_fechamento} onChange={e => setFormContrato({...formContrato, data_fechamento: e.target.value})} /></div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 border border-slate-100 rounded-xl">
               <div>
-                <label className="text-[9px] font-black text-emerald-600 uppercase ml-1">Valor Negociado/Teto</label>
-                <input required type="number" step="0.01" className="w-full p-2.5 border border-emerald-300 rounded-lg text-sm font-black text-emerald-900 bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500" value={formContrato.valor_inicial} onChange={e => setFormContrato({...formContrato, valor_inicial: e.target.value})} />
+                <label className="text-[10px] font-black text-emerald-600 uppercase ml-1 block mb-1">Valor Negociado (Teto Global)</label>
+                <input required type="number" step="0.01" placeholder="R$ 0,00" className="w-full p-3 border border-emerald-300 rounded-lg text-base font-black text-emerald-900 bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500" value={formContrato.valor_inicial} onChange={e => setFormContrato({...formContrato, valor_inicial: e.target.value})} />
               </div>
               <div>
-                <label className="text-[9px] font-black text-amber-500 uppercase ml-1">Adiantamento (Sinal)</label>
-                <input type="number" step="0.01" className="w-full p-2.5 border border-amber-200 rounded-lg text-sm font-black text-amber-700 bg-amber-50 focus:outline-none" value={formContrato.valor_adiantamento_concedido} onChange={e => setFormContrato({...formContrato, valor_adiantamento_concedido: e.target.value})} />
+                <label className="text-[10px] font-black text-amber-500 uppercase ml-1 block mb-1">Adiantamento de Caixa (Sinal)</label>
+                <input type="number" step="0.01" placeholder="R$ 0,00" className="w-full p-3 border border-amber-200 rounded-lg text-base font-black text-amber-800 bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400" value={formContrato.valor_adiantamento_concedido} onChange={e => setFormContrato({...formContrato, valor_adiantamento_concedido: e.target.value})} />
               </div>
             </div>
 
-            {/* AUDITORIA VISUAL DE SAVE */}
-            {formContrato.orcamento_pmg_id && (
-              <div className={`p-3 rounded-lg border mb-5 flex justify-between items-center transition-all shadow-inner ${saveGerado >= 0 ? 'bg-emerald-100 border-emerald-300' : 'bg-rose-100 border-rose-300'}`}>
-                <div>
-                   <p className={`text-[10px] font-black uppercase tracking-widest ${saveGerado >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{saveGerado >= 0 ? '✓ ECONOMIA / SAVE' : '⚠️ ESTOURO DE BUDGET'}</p>
-                   <p className="text-[9px] text-slate-500 font-bold mt-0.5">Teto PMG: {formatMoney(tetoAprovado)} | Outros Contratos: {formatMoney(somaOutrosContratos)}</p>
+            <div className="mt-auto">
+              <div className="mb-4 p-4 bg-blue-50/50 border border-blue-100 rounded-xl">
+                 <label className="text-[11px] font-black text-blue-800 uppercase mb-2 block flex items-center gap-2"><ListTree size={14}/> Vincular à Linha do PMG (Centro de Custo)</label>
+                 <select required className="w-full p-3 bg-white border border-blue-300 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm cursor-pointer" value={formContrato.orcamento_pmg_id} onChange={e => setFormContrato({...formContrato, orcamento_pmg_id: e.target.value})}>
+                   <option value="">-- Selecione onde alocar este custo financeiro --</option>
+                   {orcamentos.map(orc => <option key={orc.id} value={orc.id}>{orc.codigo_centro_custo} - {orc.descricao_servico} (Teto PMG: {formatMoney(orc.valor_aprovado_teto)})</option>)}
+                 </select>
+              </div>
+
+              {formContrato.orcamento_pmg_id && (
+                <div className={`p-4 rounded-xl border mb-6 flex justify-between items-center transition-all shadow-inner ${saveGerado >= 0 ? 'bg-emerald-100 border-emerald-300' : 'bg-rose-100 border-rose-300'}`}>
+                  <div>
+                     <p className={`text-[11px] font-black uppercase tracking-widest flex items-center gap-2 ${saveGerado >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                       {saveGerado >= 0 ? '✓ ECONOMIA / SAVE GERADO' : <><AlertOctagon size={14}/> ESTOURO DE BUDGET PMG</>}
+                     </p>
+                     <p className="text-[10px] text-slate-600 font-bold mt-1">
+                       Budget da Linha: {formatMoney(tetoAprovado)} <br/>
+                       Outros Contratos Ativos: {formatMoney(somaOutrosContratos)}
+                     </p>
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-2xl font-black block ${saveGerado >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {formatMoney(saveGerado)}
+                    </span>
+                    <span className={`text-[9px] font-bold uppercase tracking-wider ${saveGerado >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {saveGerado >= 0 ? 'Saldo Positivo' : 'Déficit'}
+                    </span>
+                  </div>
                 </div>
-                <span className={`text-lg font-black ${saveGerado >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                  {formatMoney(saveGerado)}
-                </span>
-              </div>
-            )}
+              )}
 
-            <button type="submit" disabled={saveGerado < 0 && !isEditingContrato} className={`w-full text-white p-3.5 rounded-xl text-sm font-black shadow-lg transition-all flex justify-center items-center gap-2 ${saveGerado < 0 && !isEditingContrato ? 'bg-slate-300 cursor-not-allowed text-slate-500 shadow-none' : (isEditingContrato ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700')}`}>
-              {isEditingContrato ? 'Atualizar Contrato' : 'Gravar Contrato Vinculado'} <ArrowRight size={16}/>
-            </button>
+              <button type="submit" disabled={saveGerado < 0 && !isEditingContrato} className={`w-full text-white p-4 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex justify-center items-center gap-2 ${saveGerado < 0 && !isEditingContrato ? 'bg-slate-200 cursor-not-allowed text-slate-400' : (isEditingContrato ? 'bg-amber-500 hover:bg-amber-600 shadow-lg shadow-amber-500/30' : 'bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/30')}`}>
+                {isEditingContrato ? 'Gravar Alterações do Contrato' : 'Aprovar e Gravar Contrato'} <ArrowRight size={18}/>
+              </button>
+            </div>
           </form>
+        </div>
+      </div>
+
+      <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-500 ${!selectedObraId ? 'opacity-30 pointer-events-none grayscale blur-[2px]' : ''}`}>
+        <div className="p-6 bg-slate-900 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-3 text-white">
+            <div className="p-2 bg-slate-800 rounded-lg"><Database size={20} className="text-blue-400"/></div>
+            <div>
+              <h3 className="font-black text-lg">Banco de Contratos</h3>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{contratosFiltrados.length} Registos Encontrados</p>
+            </div>
+          </div>
+          
+          <div className="relative w-full md:w-96">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search size={16} className="text-slate-400"/>
+            </div>
+            <input 
+              type="text" 
+              placeholder="Buscar por Fornecedor, Código ou PMG..." 
+              className="w-full pl-10 pr-4 py-3 bg-slate-800 border-none rounded-xl text-sm text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+              value={buscaContrato}
+              onChange={(e) => setBuscaContrato(e.target.value)}
+            />
+            {buscaContrato && (
+              <button onClick={() => setBuscaContrato('')} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white">
+                <X size={16}/>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-black uppercase tracking-wider text-[10px]">
+              <tr>
+                <th className="p-4 pl-6">Cód. Contrato</th>
+                <th className="p-4">Fornecedor</th>
+                <th className="p-4">Linha PMG (Centro Custo)</th>
+                <th className="p-4 text-center">Início / Fim</th>
+                <th className="p-4 text-right">Valor Teto (R$)</th>
+                <th className="p-4 text-center pr-6">Ação</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {contratosFiltrados.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="p-12 text-center text-slate-400">
+                    <Database size={48} className="mx-auto mb-4 opacity-20"/>
+                    <p className="text-base font-bold text-slate-500">Nenhum contrato encontrado.</p>
+                    {buscaContrato && <p className="text-xs mt-1">Limpe a busca para ver todos os registos.</p>}
+                  </td>
+                </tr>
+              ) : (
+                contratosFiltrados.map(c => (
+                  <tr key={c.id} className={`transition-colors hover:bg-slate-50 ${formContrato.id === c.id ? 'bg-amber-50/50' : ''}`}>
+                    <td className="p-4 pl-6 font-black text-slate-900">{c.codigo_contrato}</td>
+                    <td className="p-4">
+                      <p className="font-bold text-slate-800 truncate max-w-[200px]" title={c.razao_social}>{c.razao_social}</p>
+                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">CNPJ: {c.cnpj_fornecedor}</p>
+                    </td>
+                    <td className="p-4">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200">
+                        {c.centro_custo_raiz}
+                      </span>
+                    </td>
+                    <td className="p-4 text-center text-xs text-slate-500 font-bold">
+                      {formatDate(c.data_inicio)} <ArrowRight size={10} className="inline mx-1 opacity-50"/> {formatDate(c.data_fechamento)}
+                    </td>
+                    <td className="p-4 text-right">
+                      <p className="font-black text-slate-900">{formatMoney(c.valor_inicial)}</p>
+                      {c.valor_adiantamento_concedido > 0 && (
+                        <p className="text-[9px] text-amber-600 font-bold uppercase mt-0.5">Adiant: {formatMoney(c.valor_adiantamento_concedido)}</p>
+                      )}
+                    </td>
+                    <td className="p-4 pr-6 text-center">
+                      <button 
+                        onClick={() => handleEditContratoClick(c)} 
+                        className={`inline-flex items-center justify-center p-2 rounded-lg transition-colors ${formContrato.id === c.id ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-blue-100 hover:text-blue-700'}`}
+                        title="Editar Contrato"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   );
 }
 
-// ============================================================================
-// 3. ABA 2: ENGENHARIA (MÓDULOS INTACTOS)
-// ============================================================================
 function AbaEngenharia() {
   const [empresas, setEmpresas] = useState([]);
   const [obras, setObras] = useState([]);
@@ -307,11 +413,11 @@ function AbaEngenharia() {
   useEffect(() => { if (selectedObraId) loadContratos(); else { setContratos([]); setSelectedContratoId(''); } }, [selectedObraId]);
   useEffect(() => { if (selectedContratoId) { loadPedidos(); loadMedicoes(); } else { setPedidos([]); setMedicoes([]); } }, [selectedContratoId]);
 
-  async function loadEmpresas() { if(supabaseUrl==='mock')return; const { data } = await supabase.from('empresas').select('*').order('razao_social'); setEmpresas(data || []); }
-  async function loadObras() { if(supabaseUrl==='mock')return; const { data } = await supabase.from('obras').select('*').eq('empresa_id', selectedEmpresaId).order('nome_obra'); setObras(data || []); }
-  async function loadContratos() { if(supabaseUrl==='mock')return; const { data } = await supabase.from('contratos').select('*').eq('obra_id', selectedObraId).order('codigo_contrato'); setContratos(data || []); }
-  async function loadPedidos() { if(supabaseUrl==='mock')return; const { data } = await supabase.from('pedidos_compra').select('*').eq('contrato_id', selectedContratoId).order('created_at', { ascending: false }); setPedidos(data || []); }
-  async function loadMedicoes() { if(supabaseUrl==='mock')return; const { data } = await supabase.from('medicoes').select('*').eq('contrato_id', selectedContratoId).order('created_at', { ascending: false }); setMedicoes(data || []); }
+  async function loadEmpresas() { const { data } = await supabase.from('empresas').select('*').order('razao_social'); setEmpresas(data || []); }
+  async function loadObras() { const { data } = await supabase.from('obras').select('*').eq('empresa_id', selectedEmpresaId).order('nome_obra'); setObras(data || []); }
+  async function loadContratos() { const { data } = await supabase.from('contratos').select('*').eq('obra_id', selectedObraId).order('codigo_contrato'); setContratos(data || []); }
+  async function loadPedidos() { const { data } = await supabase.from('pedidos_compra').select('*').eq('contrato_id', selectedContratoId).order('created_at', { ascending: false }); setPedidos(data || []); }
+  async function loadMedicoes() { const { data } = await supabase.from('medicoes').select('*').eq('contrato_id', selectedContratoId).order('created_at', { ascending: false }); setMedicoes(data || []); }
 
   const handleAddPedido = async (e) => {
     e.preventDefault();
@@ -356,9 +462,6 @@ function AbaEngenharia() {
   );
 }
 
-// ============================================================================
-// 4. ABA 3: ALFÂNDEGA E LOTES (MÓDULOS INTACTOS - COMPRIMIDOS)
-// ============================================================================
 function AbaAlfandega() {
   const [empresas, setEmpresas] = useState([]);
   const [obras, setObras] = useState([]);
@@ -377,11 +480,11 @@ function AbaAlfandega() {
   useEffect(() => { if (selectedObraId) loadContratos(); else { setContratos([]); setSelectedContratoId(''); } }, [selectedObraId]);
   useEffect(() => { if (selectedContratoId) { loadTetoFisico(); loadNotasFiscais(); } else { setPedidos([]); setMedicoes([]); setNotasFiscais([]); } }, [selectedContratoId]);
 
-  async function loadEmpresas() { if(supabaseUrl==='mock')return; const { data } = await supabase.from('empresas').select('*').order('razao_social'); setEmpresas(data || []); }
-  async function loadObras() { if(supabaseUrl==='mock')return; const { data } = await supabase.from('obras').select('*').eq('empresa_id', selectedEmpresaId).order('nome_obra'); setObras(data || []); }
-  async function loadContratos() { if(supabaseUrl==='mock')return; const { data } = await supabase.from('contratos').select('*').eq('obra_id', selectedObraId).order('codigo_contrato'); setContratos(data || []); }
-  async function loadTetoFisico() { if(supabaseUrl==='mock')return; const { data: pData } = await supabase.from('pedidos_compra').select('*').eq('contrato_id', selectedContratoId); const { data: mData } = await supabase.from('medicoes').select('*').eq('contrato_id', selectedContratoId); setPedidos(pData || []); setMedicoes(mData || []); }
-  async function loadNotasFiscais() { if(supabaseUrl==='mock')return; const { data } = await supabase.from('documentos_fiscais').select('*, pedidos_compra(codigo_pedido), medicoes(codigo_medicao)').eq('contrato_id', selectedContratoId).order('created_at', { ascending: false }); setNotasFiscais(data || []); }
+  async function loadEmpresas() { const { data } = await supabase.from('empresas').select('*').order('razao_social'); setEmpresas(data || []); }
+  async function loadObras() { const { data } = await supabase.from('obras').select('*').eq('empresa_id', selectedEmpresaId).order('nome_obra'); setObras(data || []); }
+  async function loadContratos() { const { data } = await supabase.from('contratos').select('*').eq('obra_id', selectedObraId).order('codigo_contrato'); setContratos(data || []); }
+  async function loadTetoFisico() { const { data: pData } = await supabase.from('pedidos_compra').select('*').eq('contrato_id', selectedContratoId); const { data: mData } = await supabase.from('medicoes').select('*').eq('contrato_id', selectedContratoId); setPedidos(pData || []); setMedicoes(mData || []); }
+  async function loadNotasFiscais() { const { data } = await supabase.from('documentos_fiscais').select('*, pedidos_compra(codigo_pedido), medicoes(codigo_medicao)').eq('contrato_id', selectedContratoId).order('created_at', { ascending: false }); setNotasFiscais(data || []); }
 
   const handleSubmitNF = async (e) => {
     e.preventDefault();
@@ -442,11 +545,10 @@ function AbaLotes() {
   useEffect(() => { if (selectedEmpresaId) loadObras(); else { setObras([]); setSelectedObraId(''); } }, [selectedEmpresaId]);
   useEffect(() => { if (selectedObraId) { loadTabelas(); } else { setNotasPendentes([]); setLotesFechados([]); } }, [selectedObraId]);
 
-  async function loadEmpresas() { if(supabaseUrl==='mock')return; const { data } = await supabase.from('empresas').select('*').order('razao_social'); setEmpresas(data || []); }
-  async function loadObras() { if(supabaseUrl==='mock')return; const { data } = await supabase.from('obras').select('*').eq('empresa_id', selectedEmpresaId).order('nome_obra'); setObras(data || []); }
+  async function loadEmpresas() { const { data } = await supabase.from('empresas').select('*').order('razao_social'); setEmpresas(data || []); }
+  async function loadObras() { const { data } = await supabase.from('obras').select('*').eq('empresa_id', selectedEmpresaId).order('nome_obra'); setObras(data || []); }
   
   async function loadTabelas() {
-    if(supabaseUrl==='mock')return;
     const { data: notas } = await supabase.from('documentos_fiscais').select('*, contratos!inner(obra_id, razao_social, codigo_contrato, centro_custo_raiz, cnpj_fornecedor)').eq('contratos.obra_id', selectedObraId).eq('status_aprovacao', 'Pendente').is('lote_pagamento_id', null);
     setNotasPendentes(notas || []);
     const { data: lotes } = await supabase.from('lotes_pagamento').select('*, documentos_fiscais(*, contratos(razao_social, cnpj_fornecedor, centro_custo_raiz))').eq('obra_id', selectedObraId).order('data_geracao', { ascending: false });
@@ -514,16 +616,14 @@ function AbaLotes() {
 // 6. CHASSI PRINCIPAL (SIDEBAR + ROUTING)
 // ============================================================================
 export default function App() {
-  const [activeTab, setActiveTab] = useState('contratos'); // Redirecionado para focar no novo módulo EAP
+  const [activeTab, setActiveTab] = useState('contratos');
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     async function checkConnection() {
       try {
-        if (supabaseUrl !== 'mock') {
-           const { error } = await supabase.from('empresas').select('id').limit(1);
-           if (!error) setIsConnected(true);
-        }
+        const { error } = await supabase.from('empresas').select('id').limit(1);
+        if (!error) setIsConnected(true);
       } catch (err) { console.error("Offline"); }
     }
     checkConnection();
