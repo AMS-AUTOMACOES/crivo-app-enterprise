@@ -21,12 +21,16 @@ import {
   Pencil,
   X,
   ListTree,
-  Search
+  Search,
+  Menu
 } from 'lucide-react';
 
 // ============================================================================
 // 1. CONEXÃO COM O MOTOR (SUPABASE) - PRODUÇÃO PURA
 // ============================================================================
+// NOTA TÁTICA: Este código utiliza importações reais ('@supabase/supabase-js' e 'xlsx').
+// O ambiente de pré-visualização desta tela vai acusar erro de compilação, 
+// mas ele funcionará perfeitamente no seu GitHub/Vercel.
 const getEnv = (key) => {
   try {
     return typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env[key] : '';
@@ -40,12 +44,55 @@ const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY') || 'mock-key';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// ============================================================================
+// UTILS DE FORMATAÇÃO E MÁSCARAS FINANCEIRAS
+// ============================================================================
 const formatMoney = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 const formatDate = (dateString) => {
   if (!dateString) return '';
   const date = new Date(dateString);
   return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 };
+
+// Transforma número do banco em string formatada para o input (Ex: 1500.5 -> "1.500,50")
+const formatToCurrencyString = (num) => {
+  if (num === null || num === undefined || isNaN(num)) return '';
+  let v = (Number(num)).toFixed(2).replace('.', ',');
+  v = v.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+  return v;
+};
+
+// Converte string do input de volta para float de banco (Ex: "1.500,50" -> 1500.50)
+const parseCurrency = (val) => {
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+  return parseFloat(val.replace(/\./g, '').replace(',', '.'));
+};
+
+// Componente Universal de Input Financeiro (Máscara em Tempo Real)
+function CurrencyInput({ value, onChange, placeholder, className, required, disabled }) {
+  const handleChange = (e) => {
+    let v = e.target.value.replace(/\D/g, ''); // Remove tudo que não for dígito
+    if (v === '') {
+      onChange('');
+      return;
+    }
+    v = (parseInt(v, 10) / 100).toFixed(2).replace('.', ',');
+    v = v.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+    onChange(v);
+  };
+  return (
+    <input 
+      type="text" 
+      value={value || ''} 
+      onChange={handleChange} 
+      placeholder={placeholder || "0,00"} 
+      className={className} 
+      required={required}
+      disabled={disabled}
+    />
+  );
+}
 
 // ============================================================================
 // 2. ABA 1: GESTÃO ESTRUTURAL (ORÇAMENTO PMG + CONTRATOS)
@@ -61,12 +108,15 @@ function AbaContratos() {
 
   const [formEmpresa, setFormEmpresa] = useState({ razao_social: '', cnpj: '' });
   const [formObra, setFormObra] = useState({ codigo_obra: '', nome_obra: '' });
-  const [formOrcamento, setFormOrcamento] = useState({ codigo_centro_custo: '', descricao_servico: '', valor_aprovado_teto: '' });
   
+  // Controle PMG (Edição)
+  const initialOrcamentoState = { id: null, codigo_centro_custo: '', descricao_servico: '', valor_aprovado_teto: '' };
+  const [formOrcamento, setFormOrcamento] = useState(initialOrcamentoState);
+  const [isEditingOrcamento, setIsEditingOrcamento] = useState(false);
+  
+  // Controle Contrato (Edição)
   const initialContratoState = {
-    id: null,
-    orcamento_pmg_id: '',
-    codigo_contrato: '', razao_social: '', cnpj_fornecedor: '', 
+    id: null, orcamento_pmg_id: '', codigo_contrato: '', razao_social: '', cnpj_fornecedor: '', 
     data_inicio: '', data_fechamento: '', valor_inicial: '', valor_adiantamento_concedido: ''
   };
   const [formContrato, setFormContrato] = useState(initialContratoState);
@@ -88,31 +138,37 @@ function AbaContratos() {
   const handleAddEmpresa = async (e) => { e.preventDefault(); const { error } = await supabase.from('empresas').insert([formEmpresa]); if (error) alert('Erro: ' + error.message); else { setFormEmpresa({ razao_social: '', cnpj: '' }); loadEmpresas(); } };
   const handleAddObra = async (e) => { e.preventDefault(); const { error } = await supabase.from('obras').insert([{ ...formObra, empresa_id: selectedEmpresaId }]); if (error) alert('Erro: ' + error.message); else { setFormObra({ codigo_obra: '', nome_obra: '' }); loadObras(selectedEmpresaId); } };
   
-  const handleAddOrcamento = async (e) => {
+  // ---- CRUD ORÇAMENTO PMG ----
+  const handleAddOrUpdateOrcamento = async (e) => {
     e.preventDefault();
-    const payload = { ...formOrcamento, obra_id: selectedObraId, valor_aprovado_teto: parseFloat(formOrcamento.valor_aprovado_teto) };
-    const { error } = await supabase.from('orcamento_pmg').insert([payload]);
-    if (error) alert('Erro ao inserir Linha PMG: ' + error.message); else { setFormOrcamento({ codigo_centro_custo: '', descricao_servico: '', valor_aprovado_teto: '' }); loadOrcamentos(selectedObraId); }
+    const payload = { 
+      obra_id: selectedObraId, 
+      codigo_centro_custo: formOrcamento.codigo_centro_custo,
+      descricao_servico: formOrcamento.descricao_servico,
+      valor_aprovado_teto: parseCurrency(formOrcamento.valor_aprovado_teto) 
+    };
+
+    if (isEditingOrcamento) {
+      const { error } = await supabase.from('orcamento_pmg').update(payload).eq('id', formOrcamento.id);
+      if (error) alert('Erro ao atualizar Linha PMG: ' + error.message); else { handleCancelEditOrcamento(); loadOrcamentos(selectedObraId); }
+    } else {
+      const { error } = await supabase.from('orcamento_pmg').insert([payload]);
+      if (error) alert('Erro ao inserir Linha PMG: ' + error.message); else { handleCancelEditOrcamento(); loadOrcamentos(selectedObraId); }
+    }
   };
 
-  const handleEditContratoClick = (c) => {
-    setFormContrato({
-      id: c.id,
-      orcamento_pmg_id: c.orcamento_pmg_id || '',
-      codigo_contrato: c.codigo_contrato || '',
-      razao_social: c.razao_social || '',
-      cnpj_fornecedor: c.cnpj_fornecedor || '',
-      data_inicio: c.data_inicio || '',
-      data_fechamento: c.data_fechamento || '',
-      valor_inicial: c.valor_inicial || '',
-      valor_adiantamento_concedido: c.valor_adiantamento_concedido || ''
+  const handleEditOrcamentoClick = (orc) => {
+    setFormOrcamento({
+      id: orc.id,
+      codigo_centro_custo: orc.codigo_centro_custo,
+      descricao_servico: orc.descricao_servico,
+      valor_aprovado_teto: formatToCurrencyString(orc.valor_aprovado_teto)
     });
-    setIsEditingContrato(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsEditingOrcamento(true);
   };
+  const handleCancelEditOrcamento = () => { setFormOrcamento(initialOrcamentoState); setIsEditingOrcamento(false); };
 
-  const handleCancelEdit = () => { setFormContrato(initialContratoState); setIsEditingContrato(false); };
-
+  // ---- CRUD CONTRATOS ----
   const handleAddOrUpdateContrato = async (e) => {
     e.preventDefault();
     const orcSelected = orcamentos.find(o => o.id === formContrato.orcamento_pmg_id);
@@ -128,8 +184,8 @@ function AbaContratos() {
       descricao_servico: orcSelected.descricao_servico,
       data_inicio: formContrato.data_inicio || null,
       data_fechamento: formContrato.data_fechamento || null,
-      valor_inicial: parseFloat(formContrato.valor_inicial || 0),
-      valor_adiantamento_concedido: parseFloat(formContrato.valor_adiantamento_concedido || 0)
+      valor_inicial: parseCurrency(formContrato.valor_inicial),
+      valor_adiantamento_concedido: parseCurrency(formContrato.valor_adiantamento_concedido)
     };
 
     if (isEditingContrato) {
@@ -141,10 +197,28 @@ function AbaContratos() {
     }
   };
 
+  const handleEditContratoClick = (c) => {
+    setFormContrato({
+      id: c.id,
+      orcamento_pmg_id: c.orcamento_pmg_id || '',
+      codigo_contrato: c.codigo_contrato || '',
+      razao_social: c.razao_social || '',
+      cnpj_fornecedor: c.cnpj_fornecedor || '',
+      data_inicio: c.data_inicio || '',
+      data_fechamento: c.data_fechamento || '',
+      valor_inicial: formatToCurrencyString(c.valor_inicial),
+      valor_adiantamento_concedido: formatToCurrencyString(c.valor_adiantamento_concedido)
+    });
+    setIsEditingContrato(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => { setFormContrato(initialContratoState); setIsEditingContrato(false); };
+
   const linhaPmgSelecionada = orcamentos.find(o => o.id === formContrato.orcamento_pmg_id);
   const tetoAprovado = linhaPmgSelecionada ? parseFloat(linhaPmgSelecionada.valor_aprovado_teto) : 0;
   const somaOutrosContratos = contratos.filter(c => c.orcamento_pmg_id === formContrato.orcamento_pmg_id && c.id !== formContrato.id).reduce((acc, c) => acc + Number(c.valor_inicial), 0);
-  const valorDigitado = parseFloat(formContrato.valor_inicial || 0);
+  const valorDigitado = parseCurrency(formContrato.valor_inicial);
   const saveGerado = tetoAprovado - somaOutrosContratos - valorDigitado;
 
   const contratosFiltrados = contratos.filter(c => 
@@ -190,7 +264,12 @@ function AbaContratos() {
 
       <div className={`grid grid-cols-1 xl:grid-cols-12 gap-6 transition-all duration-500 ${!selectedObraId ? 'opacity-30 pointer-events-none grayscale blur-[2px]' : ''}`}>
         
-        <div className="xl:col-span-5 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full">
+        <div className="xl:col-span-5 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full relative">
+          {isEditingOrcamento && (
+             <div className="absolute -top-3 left-6 bg-amber-400 text-amber-900 text-[9px] font-black uppercase px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                Editando EAP <button type="button" onClick={handleCancelEditOrcamento}><X size={12}/></button>
+             </div>
+          )}
           <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest mb-6 flex items-center gap-2"><ListTree size={16} className="text-blue-600"/> 3. Linha Base PMG (EAP)</h3>
           
           <div className="flex-1 space-y-2 mb-6 min-h-[250px] max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
@@ -201,29 +280,41 @@ function AbaContratos() {
               </div>
             )}
             {orcamentos.map(orc => (
-              <div key={orc.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center hover:border-blue-300 transition-colors group">
+              <div key={orc.id} className={`p-3 border rounded-xl flex justify-between items-center transition-colors group ${formOrcamento.id === orc.id ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200 hover:border-blue-300'}`}>
                 <div className="truncate pr-2">
                   <span className="text-[10px] font-black text-white bg-slate-800 px-2 py-0.5 rounded-md">{orc.codigo_centro_custo}</span>
                   <p className="text-[11px] text-slate-700 font-bold truncate mt-1.5">{orc.descricao_servico}</p>
                 </div>
-                <div className="text-right shrink-0">
-                   <p className="text-[9px] font-black text-slate-400 uppercase leading-none mb-0.5">Teto Aprovado</p>
-                   <p className="text-sm font-black text-blue-700">{formatMoney(orc.valor_aprovado_teto)}</p>
+                <div className="text-right shrink-0 flex items-center gap-3">
+                   <div>
+                     <p className="text-[9px] font-black text-slate-400 uppercase leading-none mb-0.5">Teto Aprovado</p>
+                     <p className="text-sm font-black text-blue-700">{formatMoney(orc.valor_aprovado_teto)}</p>
+                   </div>
+                   <button onClick={() => handleEditOrcamentoClick(orc)} className="p-1.5 bg-white border border-slate-200 rounded-lg hover:bg-amber-100 hover:text-amber-700 transition-colors" title="Editar Linha PMG">
+                     <Pencil size={14} />
+                   </button>
                 </div>
               </div>
             ))}
           </div>
 
-          <form onSubmit={handleAddOrcamento} className="space-y-3 pt-5 border-t border-slate-100 mt-auto">
+          <form onSubmit={handleAddOrUpdateOrcamento} className="space-y-3 pt-5 border-t border-slate-100 mt-auto">
             <div className="grid grid-cols-3 gap-2">
                <div className="col-span-1"><input required placeholder="Cód (Ex: 01.01)" className="w-full p-2.5 border border-slate-200 rounded-lg text-xs font-bold focus:border-blue-400 outline-none" value={formOrcamento.codigo_centro_custo} onChange={e => setFormOrcamento({...formOrcamento, codigo_centro_custo: e.target.value})} /></div>
                <div className="col-span-2"><input required placeholder="Descrição (Ex: Fundação)" className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:border-blue-400 outline-none" value={formOrcamento.descricao_servico} onChange={e => setFormOrcamento({...formOrcamento, descricao_servico: e.target.value})} /></div>
             </div>
             <div>
               <span className="text-[9px] font-black text-blue-600 uppercase ml-1 block mb-1">Valor Aprovado (Capex)</span>
-              <input required type="number" step="0.01" placeholder="R$ 0,00" className="w-full p-3 border border-blue-200 bg-blue-50/50 rounded-lg text-sm font-black text-blue-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400" value={formOrcamento.valor_aprovado_teto} onChange={e => setFormOrcamento({...formOrcamento, valor_aprovado_teto: e.target.value})} />
+              <CurrencyInput 
+                required 
+                className="w-full p-3 border border-blue-200 bg-blue-50/50 rounded-lg text-sm font-black text-blue-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400" 
+                value={formOrcamento.valor_aprovado_teto} 
+                onChange={val => setFormOrcamento({...formOrcamento, valor_aprovado_teto: val})} 
+              />
             </div>
-            <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-blue-700 flex items-center justify-center gap-2 transition-shadow hover:shadow-lg hover:shadow-blue-600/20"><Plus size={16}/> Adicionar Linha PMG</button>
+            <button type="submit" className={`w-full text-white p-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${isEditingOrcamento ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
+               {isEditingOrcamento ? 'Atualizar Linha PMG' : <><Plus size={16}/> Adicionar Linha PMG</>}
+            </button>
           </form>
         </div>
 
@@ -257,17 +348,26 @@ function AbaContratos() {
             <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 border border-slate-100 rounded-xl">
               <div>
                 <label className="text-[10px] font-black text-emerald-600 uppercase ml-1 block mb-1">Valor Negociado (Teto Global)</label>
-                <input required type="number" step="0.01" placeholder="R$ 0,00" className="w-full p-3 border border-emerald-300 rounded-lg text-base font-black text-emerald-900 bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500" value={formContrato.valor_inicial} onChange={e => setFormContrato({...formContrato, valor_inicial: e.target.value})} />
+                <CurrencyInput 
+                  required 
+                  className="w-full p-3 border border-emerald-300 rounded-lg text-base font-black text-emerald-900 bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500" 
+                  value={formContrato.valor_inicial} 
+                  onChange={val => setFormContrato({...formContrato, valor_inicial: val})} 
+                />
               </div>
               <div>
                 <label className="text-[10px] font-black text-amber-500 uppercase ml-1 block mb-1">Adiantamento de Caixa (Sinal)</label>
-                <input type="number" step="0.01" placeholder="R$ 0,00" className="w-full p-3 border border-amber-200 rounded-lg text-base font-black text-amber-800 bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400" value={formContrato.valor_adiantamento_concedido} onChange={e => setFormContrato({...formContrato, valor_adiantamento_concedido: e.target.value})} />
+                <CurrencyInput 
+                  className="w-full p-3 border border-amber-200 rounded-lg text-base font-black text-amber-800 bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400" 
+                  value={formContrato.valor_adiantamento_concedido} 
+                  onChange={val => setFormContrato({...formContrato, valor_adiantamento_concedido: val})} 
+                />
               </div>
             </div>
 
             <div className="mt-auto">
               <div className="mb-4 p-4 bg-blue-50/50 border border-blue-100 rounded-xl">
-                 <label className="text-[11px] font-black text-blue-800 uppercase mb-2 block flex items-center gap-2"><ListTree size={14}/> Vincular à Linha do PMG (Centro de Custo)</label>
+                 <label className="text-[11px] font-black text-blue-800 uppercase mb-2 flex items-center gap-2"><ListTree size={14}/> Vincular à Linha do PMG (Centro de Custo)</label>
                  <select required className="w-full p-3 bg-white border border-blue-300 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm cursor-pointer" value={formContrato.orcamento_pmg_id} onChange={e => setFormContrato({...formContrato, orcamento_pmg_id: e.target.value})}>
                    <option value="">-- Selecione onde alocar este custo financeiro --</option>
                    {orcamentos.map(orc => <option key={orc.id} value={orc.id}>{orc.codigo_centro_custo} - {orc.descricao_servico} (Teto PMG: {formatMoney(orc.valor_aprovado_teto)})</option>)}
@@ -421,12 +521,12 @@ function AbaEngenharia() {
 
   const handleAddPedido = async (e) => {
     e.preventDefault();
-    const { error } = await supabase.from('pedidos_compra').insert([{ ...formPedido, contrato_id: selectedContratoId, valor_total_aprovado: parseFloat(formPedido.valor_total_aprovado) }]);
+    const { error } = await supabase.from('pedidos_compra').insert([{ ...formPedido, contrato_id: selectedContratoId, valor_total_aprovado: parseCurrency(formPedido.valor_total_aprovado) }]);
     if (error) alert('Erro: ' + error.message); else { setFormPedido({ codigo_pedido: '', cnpj_terceiro: '', razao_social_terceiro: '', valor_total_aprovado: '' }); loadPedidos(); }
   };
   const handleAddMedicao = async (e) => {
     e.preventDefault();
-    const { error } = await supabase.from('medicoes').insert([{ ...formMedicao, contrato_id: selectedContratoId, valor_bruto_medido: parseFloat(formMedicao.valor_bruto_medido), desconto_fundo_canteiro: parseFloat(formMedicao.desconto_fundo_canteiro || 0), descontos_diversos: parseFloat(formMedicao.descontos_diversos || 0) }]);
+    const { error } = await supabase.from('medicoes').insert([{ ...formMedicao, contrato_id: selectedContratoId, valor_bruto_medido: parseCurrency(formMedicao.valor_bruto_medido), desconto_fundo_canteiro: parseCurrency(formMedicao.desconto_fundo_canteiro), descontos_diversos: parseCurrency(formMedicao.descontos_diversos) }]);
     if (error) alert('Erro: ' + error.message); else { setFormMedicao({ codigo_medicao: '', data_lancamento: '', valor_bruto_medido: '', desconto_fundo_canteiro: '', descontos_diversos: '' }); loadMedicoes(); }
   };
 
@@ -442,7 +542,8 @@ function AbaEngenharia() {
         <div className="bg-white p-6 rounded-2xl shadow-md border-t-4 border-t-blue-500 border-x border-b border-slate-200">
           <div className="flex items-center gap-3 mb-6"><div className="p-3 bg-blue-100 rounded-xl text-blue-600"><ShoppingCart size={24}/></div><h3 className="font-black text-slate-800 text-lg">Pedidos de Compra</h3></div>
           <form onSubmit={handleAddPedido} className="space-y-4 mb-8 bg-slate-50 p-4 rounded-xl border border-slate-100">
-            <div className="grid grid-cols-2 gap-3"><input required placeholder="Cód. (PC-001)" className="p-2.5 border border-slate-200 rounded-lg text-sm" value={formPedido.codigo_pedido} onChange={e => setFormPedido({...formPedido, codigo_pedido: e.target.value})} /><input required type="number" step="0.01" placeholder="Valor (R$)" className="p-2.5 border border-slate-200 rounded-lg text-sm font-bold" value={formPedido.valor_total_aprovado} onChange={e => setFormPedido({...formPedido, valor_total_aprovado: e.target.value})} /></div>
+            <div className="grid grid-cols-2 gap-3"><input required placeholder="Cód. (PC-001)" className="p-2.5 border border-slate-200 rounded-lg text-sm" value={formPedido.codigo_pedido} onChange={e => setFormPedido({...formPedido, codigo_pedido: e.target.value})} />
+            <CurrencyInput required placeholder="Valor Aprovado (R$)" className="p-2.5 border border-slate-200 rounded-lg text-sm font-bold" value={formPedido.valor_total_aprovado} onChange={val => setFormPedido({...formPedido, valor_total_aprovado: val})} /></div>
             <input required placeholder="Fornecedor Material" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formPedido.razao_social_terceiro} onChange={e => setFormPedido({...formPedido, razao_social_terceiro: e.target.value})} />
             <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-xl text-sm font-black hover:bg-blue-700">Aprovar Pedido</button>
           </form>
@@ -452,7 +553,11 @@ function AbaEngenharia() {
           <div className="flex items-center gap-3 mb-6"><div className="p-3 bg-emerald-100 rounded-xl text-emerald-600"><Ruler size={24}/></div><h3 className="font-black text-slate-800 text-lg">Boletins de Medição</h3></div>
           <form onSubmit={handleAddMedicao} className="space-y-4 mb-8 bg-slate-50 p-4 rounded-xl border border-slate-100">
             <div className="grid grid-cols-2 gap-3"><input required placeholder="Cód. (BM-01)" className="p-2.5 border border-slate-200 rounded-lg text-sm" value={formMedicao.codigo_medicao} onChange={e => setFormMedicao({...formMedicao, codigo_medicao: e.target.value})} /><input required type="date" className="p-2.5 border border-slate-200 rounded-lg text-sm" value={formMedicao.data_lancamento} onChange={e => setFormMedicao({...formMedicao, data_lancamento: e.target.value})} /></div>
-            <input required type="number" step="0.01" placeholder="Valor Bruto (R$)" className="w-full p-3 border border-emerald-200 bg-emerald-50/50 rounded-lg text-sm font-black" value={formMedicao.valor_bruto_medido} onChange={e => setFormMedicao({...formMedicao, valor_bruto_medido: e.target.value})} />
+            <CurrencyInput required placeholder="Valor Bruto (R$)" className="w-full p-3 border border-emerald-200 bg-emerald-50/50 rounded-lg text-sm font-black" value={formMedicao.valor_bruto_medido} onChange={val => setFormMedicao({...formMedicao, valor_bruto_medido: val})} />
+            <div className="grid grid-cols-2 gap-3">
+              <CurrencyInput placeholder="Desc. Canteiro (R$)" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formMedicao.desconto_fundo_canteiro} onChange={val => setFormMedicao({...formMedicao, desconto_fundo_canteiro: val})} />
+              <CurrencyInput placeholder="Outros Desc. (R$)" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formMedicao.descontos_diversos} onChange={val => setFormMedicao({...formMedicao, descontos_diversos: val})} />
+            </div>
             <button type="submit" className="w-full bg-emerald-600 text-white p-3 rounded-xl text-sm font-black hover:bg-emerald-700">Aprovar Medição</button>
           </form>
           <div className="space-y-3 max-h-60 overflow-y-auto">{medicoes.map(m => (<div key={m.id} className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm flex justify-between items-center"><span className="text-sm font-black">{m.codigo_medicao}</span><span className="text-sm font-black text-emerald-600">{formatMoney(m.valor_bruto_medido)}</span></div>))}</div>
@@ -473,7 +578,7 @@ function AbaAlfandega() {
   const [medicoes, setMedicoes] = useState([]);
   const [notasFiscais, setNotasFiscais] = useState([]);
   const [tipoDocumento, setTipoDocumento] = useState('Serviço'); 
-  const [formNF, setFormNF] = useState({ numero_documento: '', data_emissao: '', data_vencimento: '', valor_bruto: '', pedido_id: '', medicao_id: '' });
+  const [formNF, setFormNF] = useState({ numero_documento: '', data_emissao: '', data_vencimento: '', valor_bruto: '', impostos_destacados: '', valor_retencao_tecnica: '', valor_amortizado_adiantamento: '', pedido_id: '', medicao_id: '' });
 
   useEffect(() => { loadEmpresas(); }, []);
   useEffect(() => { if (selectedEmpresaId) loadObras(); else { setObras([]); setSelectedObraId(''); } }, [selectedEmpresaId]);
@@ -490,11 +595,15 @@ function AbaAlfandega() {
     e.preventDefault();
     const payload = {
       contrato_id: selectedContratoId, tipo_documento: tipoDocumento, numero_documento: formNF.numero_documento,
-      data_emissao: formNF.data_emissao, data_vencimento: formNF.data_vencimento, valor_bruto: parseFloat(formNF.valor_bruto),
+      data_emissao: formNF.data_emissao, data_vencimento: formNF.data_vencimento, 
+      valor_bruto: parseCurrency(formNF.valor_bruto),
+      impostos_destacados: parseCurrency(formNF.impostos_destacados),
+      valor_retencao_tecnica: parseCurrency(formNF.valor_retencao_tecnica),
+      valor_amortizado_adiantamento: parseCurrency(formNF.valor_amortizado_adiantamento),
       pedido_id: tipoDocumento === 'Material' ? formNF.pedido_id : null, medicao_id: tipoDocumento === 'Serviço' ? formNF.medicao_id : null
     };
     const { error } = await supabase.from('documentos_fiscais').insert([payload]);
-    if (error) alert(`[BLOQUEIO DA ALFÂNDEGA]\n\n${error.message}`); else { alert("Sucesso!"); setFormNF({ numero_documento: '', data_emissao: '', data_vencimento: '', valor_bruto: '', pedido_id: '', medicao_id: '' }); loadNotasFiscais(); }
+    if (error) alert(`[BLOQUEIO DA ALFÂNDEGA]\n\n${error.message}`); else { alert("Sucesso!"); setFormNF({ numero_documento: '', data_emissao: '', data_vencimento: '', valor_bruto: '', impostos_destacados: '', valor_retencao_tecnica: '', valor_amortizado_adiantamento: '', pedido_id: '', medicao_id: '' }); loadNotasFiscais(); }
   };
 
   return (
@@ -511,9 +620,19 @@ function AbaAlfandega() {
             <div className="flex gap-2 mb-4">{['Serviço', 'Material'].map(tipo => (<button key={tipo} type="button" onClick={() => setTipoDocumento(tipo)} className={`flex-1 py-2 text-xs font-bold rounded-lg border ${tipoDocumento === tipo ? 'bg-rose-600 text-white' : 'bg-white'}`}>{tipo}</button>))}</div>
             {tipoDocumento === 'Serviço' && (<select required className="w-full p-2.5 border rounded-lg text-sm" value={formNF.medicao_id} onChange={e => setFormNF({...formNF, medicao_id: e.target.value})}><option value="">Selecione a Medição</option>{medicoes.map(m => <option key={m.id} value={m.id}>{m.codigo_medicao} (Teto: {formatMoney(m.valor_bruto_medido)})</option>)}</select>)}
             {tipoDocumento === 'Material' && (<select required className="w-full p-2.5 border rounded-lg text-sm" value={formNF.pedido_id} onChange={e => setFormNF({...formNF, pedido_id: e.target.value})}><option value="">Selecione o Pedido</option>{pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido} (Teto: {formatMoney(p.valor_total_aprovado)})</option>)}</select>)}
-            <div className="grid grid-cols-2 gap-3"><input required placeholder="Nº Fatura" className="w-full p-2.5 border rounded-lg text-sm" value={formNF.numero_documento} onChange={e => setFormNF({...formNF, numero_documento: e.target.value})} /><input required type="number" step="0.01" placeholder="Valor Bruto (R$)" className="w-full p-2.5 border rounded-lg text-sm font-black text-rose-900 bg-rose-50" value={formNF.valor_bruto} onChange={e => setFormNF({...formNF, valor_bruto: e.target.value})} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <input required placeholder="Nº Fatura" className="w-full p-2.5 border rounded-lg text-sm" value={formNF.numero_documento} onChange={e => setFormNF({...formNF, numero_documento: e.target.value})} />
+              <CurrencyInput required placeholder="Valor Bruto (R$)" className="w-full p-2.5 border rounded-lg text-sm font-black text-rose-900 bg-rose-50" value={formNF.valor_bruto} onChange={val => setFormNF({...formNF, valor_bruto: val})} />
+            </div>
             <div className="grid grid-cols-2 gap-3"><input required type="date" className="w-full p-2.5 border rounded-lg text-sm" value={formNF.data_emissao} onChange={e => setFormNF({...formNF, data_emissao: e.target.value})} /><input required type="date" className="w-full p-2.5 border rounded-lg text-sm" value={formNF.data_vencimento} onChange={e => setFormNF({...formNF, data_vencimento: e.target.value})} /></div>
-            <button type="submit" className="w-full bg-slate-900 text-white p-4 rounded-xl text-sm font-black hover:bg-rose-700 mt-6">Submeter à Alfândega</button>
+            
+            <div className="border-t border-slate-100 pt-4 mt-4 grid grid-cols-3 gap-3">
+              <div><label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Impostos</label><CurrencyInput placeholder="R$ 0,00" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formNF.impostos_destacados} onChange={val => setFormNF({...formNF, impostos_destacados: val})} /></div>
+              <div><label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Retenção</label><CurrencyInput placeholder="R$ 0,00" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formNF.valor_retencao_tecnica} onChange={val => setFormNF({...formNF, valor_retencao_tecnica: val})} /></div>
+              <div><label className="text-[9px] font-bold text-amber-600 uppercase ml-1">Amortiza?</label><CurrencyInput placeholder="R$ 0,00" className="w-full p-2.5 border border-amber-200 bg-amber-50 rounded-lg text-sm font-bold text-amber-800" value={formNF.valor_amortizado_adiantamento} onChange={val => setFormNF({...formNF, valor_amortizado_adiantamento: val})} /></div>
+            </div>
+
+            <button type="submit" className="w-full bg-slate-900 text-white p-4 rounded-xl text-sm font-black hover:bg-rose-700 mt-6 flex justify-center items-center gap-2"><ShieldCheck size={18}/> Submeter à Alfândega</button>
           </form>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -522,7 +641,7 @@ function AbaAlfandega() {
              {notasFiscais.map(nf => (
                  <div key={nf.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
                    <div><span className="font-black text-slate-800 text-lg">NF {nf.numero_documento}</span><p className="text-xs text-slate-500 font-bold">{nf.tipo_documento}</p></div>
-                   <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase">Valor</p><p className="text-xl font-black text-slate-900">{formatMoney(nf.valor_bruto)}</p></div>
+                   <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase">Valor Bruto</p><p className="text-xl font-black text-slate-900">{formatMoney(nf.valor_bruto)}</p></div>
                  </div>
              ))}
            </div>
@@ -618,6 +737,7 @@ function AbaLotes() {
 export default function App() {
   const [activeTab, setActiveTab] = useState('contratos');
   const [isConnected, setIsConnected] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // NOVO: Controle da Sidebar
 
   useEffect(() => {
     async function checkConnection() {
@@ -631,35 +751,60 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden">
-      <aside className="w-72 bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-20 shrink-0">
-        <div className="h-20 flex items-center px-6 border-b border-slate-800 bg-slate-950/50">
-          <ShieldCheck className="text-emerald-500 mr-3" size={28} />
-          <div>
-            <h1 className="text-xl font-black text-white tracking-wide leading-none uppercase">Crivo<span className="text-emerald-500 lowercase">.app</span></h1>
-            <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-1">Gerenciadora PMG</p>
-          </div>
+      
+      {/* SIDEBAR COM LÓGICA DE RECOLHIMENTO */}
+      <aside className={`${isSidebarOpen ? 'w-72' : 'w-20'} bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-20 shrink-0 transition-all duration-300 relative`}>
+        
+        {/* Header da Sidebar */}
+        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800 bg-slate-950/50 overflow-hidden">
+          {isSidebarOpen && (
+            <div className="flex items-center gap-3 whitespace-nowrap animate-in fade-in">
+              <ShieldCheck className="text-emerald-500 shrink-0" size={28} />
+              <div>
+                <h1 className="text-xl font-black text-white tracking-wide leading-none uppercase">Crivo<span className="text-emerald-500 lowercase">.app</span></h1>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-1">Gerenciadora PMG</p>
+              </div>
+            </div>
+          )}
+          {!isSidebarOpen && <ShieldCheck className="text-emerald-500 mx-auto shrink-0" size={24} />}
         </div>
-        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1">
-          <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-4">Estrutura</p>
-          <MenuButton id="contratos" icon={<Building2 size={18} />} label="EAP & Contratos" active={activeTab === 'contratos'} onClick={() => setActiveTab('contratos')} />
-          <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8">Operação de Campo</p>
-          <MenuButton id="engenharia" icon={<HardHat size={18} />} label="Engenharia (Medições)" active={activeTab === 'engenharia'} onClick={() => setActiveTab('engenharia')} />
-          <MenuButton id="alfandega" icon={<ShieldCheck size={18} />} label="Alfândega (NFs)" active={activeTab === 'alfandega'} onClick={() => setActiveTab('alfandega')} />
-          <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8">Executiva</p>
-          <MenuButton id="lotes" icon={<FolderLock size={18} />} label="Lotes de Pagamento" active={activeTab === 'lotes'} onClick={() => setActiveTab('lotes')} />
+        
+        {/* Botão de Toggle sobreposto à borda */}
+        <button 
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="absolute top-6 -right-3 bg-slate-800 border border-slate-700 text-white p-1 rounded-full hover:bg-emerald-500 hover:border-emerald-400 transition-colors z-30"
+          title={isSidebarOpen ? "Recolher Menu" : "Expandir Menu"}
+        >
+          <Menu size={16} />
+        </button>
+
+        <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 overflow-x-hidden">
+          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-4 whitespace-nowrap">Estrutura</p>}
+          <MenuButton isOpen={isSidebarOpen} id="contratos" icon={<Building2 size={18} className="shrink-0"/>} label="EAP & Contratos" active={activeTab === 'contratos'} onClick={() => setActiveTab('contratos')} />
+          
+          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap">Operação de Campo</p>}
+          <MenuButton isOpen={isSidebarOpen} id="engenharia" icon={<HardHat size={18} className="shrink-0"/>} label="Engenharia (Medições)" active={activeTab === 'engenharia'} onClick={() => setActiveTab('engenharia')} />
+          <MenuButton isOpen={isSidebarOpen} id="alfandega" icon={<ShieldCheck size={18} className="shrink-0"/>} label="Alfândega (NFs)" active={activeTab === 'alfandega'} onClick={() => setActiveTab('alfandega')} />
+          
+          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap">Executiva</p>}
+          <MenuButton isOpen={isSidebarOpen} id="lotes" icon={<FolderLock size={18} className="shrink-0"/>} label="Lotes de Pagamento" active={activeTab === 'lotes'} onClick={() => setActiveTab('lotes')} />
         </nav>
-        <div className="p-4 border-t border-slate-800 bg-slate-950/30">
-          <div className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-slate-800/50 border border-slate-700/50">
-            <div className="relative flex h-2 w-2">
+
+        <div className="p-4 border-t border-slate-800 bg-slate-950/30 overflow-hidden">
+          <div className={`flex items-center ${isSidebarOpen ? 'gap-3 px-3 py-3' : 'justify-center py-3'} rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-all`}>
+            <div className="relative flex h-2 w-2 shrink-0">
               {isConnected && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
               <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
             </div>
-            <div className="text-[10px] uppercase font-black tracking-tighter">
-              <p className={isConnected ? 'text-emerald-400' : 'text-slate-400'}>{isConnected ? 'Motor Online & Blindado' : 'Aguardando Banco'}</p>
-            </div>
+            {isSidebarOpen && (
+              <div className="text-[10px] uppercase font-black tracking-tighter whitespace-nowrap">
+                <p className={isConnected ? 'text-emerald-400' : 'text-slate-400'}>{isConnected ? 'Motor Online & Blindado' : 'Aguardando Banco'}</p>
+              </div>
+            )}
           </div>
         </div>
       </aside>
+      
       <main className="flex-1 flex flex-col relative overflow-hidden">
         <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-10 z-10 shrink-0">
           <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest"><Database size={14}/> Base de Dados / AMS Automações</div>
@@ -676,10 +821,15 @@ export default function App() {
   );
 }
 
-function MenuButton({ active, icon, label, onClick }) {
+function MenuButton({ active, icon, label, onClick, isOpen }) {
   return (
-    <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-tight transition-all duration-300 ${active ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-500 hover:bg-slate-800 hover:text-white border border-transparent'}`}>
-      {icon} {label}
+    <button 
+      onClick={onClick} 
+      title={!isOpen ? label : ''}
+      className={`w-full flex items-center ${isOpen ? 'gap-3 px-4' : 'justify-center px-0'} py-3 rounded-xl text-[11px] font-black uppercase tracking-tight transition-all duration-300 ${active ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-500 hover:bg-slate-800 hover:text-white border border-transparent'}`}
+    >
+      {icon} 
+      {isOpen && <span className="whitespace-nowrap overflow-hidden text-left">{label}</span>}
     </button>
   );
 }
