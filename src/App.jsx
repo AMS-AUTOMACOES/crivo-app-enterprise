@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 
 // ============================================================================
 // ⚠️ INSTRUÇÃO PARA O GITHUB: DESCOMENTE AS 2 LINHAS ABAIXO E APAGUE OS MOCKS ⚠️
-// import { createClient } from '@supabase/supabase-js';
-// import * as XLSX from 'xlsx';
+import { createClient } from '@supabase/supabase-js';
+import * as XLSX from 'xlsx';
 // ============================================================================
 
 import { 
