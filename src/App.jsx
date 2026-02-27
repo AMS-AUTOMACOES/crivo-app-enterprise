@@ -10,7 +10,7 @@ import {
   Building2, HardHat, ShieldCheck, FolderLock, LineChart, LogOut,
   Plus, ArrowRight, Database, ShoppingCart, Ruler, FileText,
   AlertOctagon, CheckSquare, Download, FileSpreadsheet, Pencil, X, ListTree, Search, Menu, History, Trash2, CopyPlus,
-  ChevronRight, ChevronDown, CornerDownRight
+  ChevronRight, ChevronDown, CornerDownRight, PieChart, TrendingUp, DollarSign, Activity
 } from 'lucide-react';
 
 // ============================================================================
@@ -65,23 +65,234 @@ function CurrencyInput({ value, onChange, placeholder, className, required, disa
     onChange(v);
   };
   return (
-    <input 
-      type="text" value={value || ''} onChange={handleChange} 
-      placeholder={placeholder || "0,00"} className={className} 
-      required={required} disabled={disabled}
-    />
+    <input type="text" value={value || ''} onChange={handleChange} placeholder={placeholder || "0,00"} className={className} required={required} disabled={disabled} />
   );
 }
 
-// ============================================================================
-// LÓGICA DE RAIZ PARA RATEIOS (.1, .2, etc)
-// ============================================================================
 const getBaseCode = (code) => {
   if (!code) return '';
-  // Se o código terminar em ".numero", extrai a parte antes do ponto. Ex: CT-001.1 -> CT-001
   const match = code.match(/^(.*)\.\d+$/);
   return match ? match[1] : code;
 };
+
+// ============================================================================
+// 1. ABA DASHBOARD (A VISÃO DE ÁGUIA PMG)
+// ============================================================================
+function AbaDashboard() {
+  const [empresas, setEmpresas] = useState([]);
+  const [obras, setObras] = useState([]);
+  const [selectedEmpresaId, setSelectedEmpresaId] = useState('');
+  const [selectedObraId, setSelectedObraId] = useState('');
+  
+  const [dashboardData, setDashboardData] = useState({ orcamentos: [], kpis: null });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { loadEmpresas(); }, []);
+  useEffect(() => { if (selectedEmpresaId) loadObras(selectedEmpresaId); else { setObras([]); setSelectedObraId(''); } }, [selectedEmpresaId]);
+  useEffect(() => { if (selectedObraId) buildDashboard(selectedObraId); else setDashboardData({ orcamentos: [], kpis: null }); }, [selectedObraId]);
+
+  async function loadEmpresas() { const { data } = await supabase.from('empresas').select('*').order('razao_social'); setEmpresas(data || []); }
+  async function loadObras(empId) { const { data } = await supabase.from('obras').select('*').eq('empresa_id', empId).order('nome_obra'); setObras(data || []); }
+
+  async function buildDashboard(obrId) {
+    setLoading(true);
+    try {
+      // 1. Buscar EAP (Orçamento Base)
+      const { data: orcData } = await supabase.from('orcamento_pmg').select('*').eq('obra_id', obrId).order('codigo_centro_custo');
+      
+      // 2. Buscar Contratos e seus Aditivos
+      const { data: contData } = await supabase.from('contratos').select('id, orcamento_pmg_id, valor_inicial, aditivos_contrato(valor_acrescimo)').eq('obra_id', obrId);
+      
+      // 3. Buscar Notas Fiscais (Incorrido) com Inner Join silencioso para pegar o orcamento_pmg_id
+      const { data: nfData } = await supabase.from('documentos_fiscais')
+        .select('valor_bruto, contratos!inner(obra_id, orcamento_pmg_id)')
+        .eq('contratos.obra_id', obrId);
+
+      if (!orcData) return;
+
+      let globalCapex = 0;
+      let globalContratado = 0;
+      let globalIncorrido = 0;
+
+      const linhasMatematicas = orcData.map(orc => {
+        const capex = Number(orc.valor_aprovado_teto);
+        globalCapex += capex;
+
+        // Somar Contratos e Aditivos desta linha
+        const contratosDaLinha = (contData || []).filter(c => c.orcamento_pmg_id === orc.id);
+        let contratadoLinha = 0;
+        contratosDaLinha.forEach(c => {
+          contratadoLinha += Number(c.valor_inicial);
+          const aditivos = c.aditivos_contrato || [];
+          aditivos.forEach(a => { contratadoLinha += Number(a.valor_acrescimo); });
+        });
+        globalContratado += contratadoLinha;
+
+        // Somar Notas Fiscais desta linha
+        const notasDaLinha = (nfData || []).filter(nf => nf.contratos.orcamento_pmg_id === orc.id);
+        const incorridoLinha = notasDaLinha.reduce((acc, nf) => acc + Number(nf.valor_bruto), 0);
+        globalIncorrido += incorridoLinha;
+
+        const saveEap = capex - contratadoLinha;
+        const saldoPagar = contratadoLinha - incorridoLinha;
+        const percComprometido = capex > 0 ? (contratadoLinha / capex) * 100 : 0;
+        const percExecutado = contratadoLinha > 0 ? (incorridoLinha / contratadoLinha) * 100 : 0;
+
+        return { ...orc, capex, contratadoLinha, saveEap, incorridoLinha, saldoPagar, percComprometido, percExecutado };
+      });
+
+      const globalSave = globalCapex - globalContratado;
+      
+      setDashboardData({
+        orcamentos: linhasMatematicas,
+        kpis: { globalCapex, globalContratado, globalSave, globalIncorrido }
+      });
+
+    } catch (err) { console.error(err); }
+    setLoading(false);
+  }
+
+  return (
+    <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-6 pb-20">
+      <header className="mb-4">
+        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Painel Executivo PMG</h2>
+        <p className="text-slate-500">Controlo de Capex, Comprometimento e Execução Financeira em tempo real.</p>
+      </header>
+
+      {/* FILTROS GLOBAIS DE DIRETORIA */}
+      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block flex items-center gap-2"><Building2 size={14}/> Empresa Investidora</label>
+          <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500" value={selectedEmpresaId} onChange={e => setSelectedEmpresaId(e.target.value)}>
+            <option value="">-- Filtro Global: Selecionar Investidor --</option>
+            {empresas.map(emp => <option key={emp.id} value={emp.id}>{emp.razao_social}</option>)}
+          </select>
+        </div>
+        <div className={`${!selectedEmpresaId ? 'opacity-30 pointer-events-none' : ''} transition-opacity`}>
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block flex items-center gap-2"><HardHat size={14}/> Empreendimento (Obra)</label>
+          <select className="w-full p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm font-black text-blue-900 outline-none focus:ring-2 focus:ring-blue-500 shadow-inner" value={selectedObraId} onChange={e => setSelectedObraId(e.target.value)}>
+            <option value="">-- Filtro Global: Selecionar Obra --</option>
+            {obras.map(o => <option key={o.id} value={o.id}>{o.codigo_obra} - {o.nome_obra}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {!selectedObraId ? (
+        <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 bg-white/50">
+          <PieChart size={48} className="mx-auto mb-4 opacity-20" />
+          <h3 className="text-xl font-black text-slate-600 mb-2">Aguardando Parâmetros</h3>
+          <p className="text-sm font-medium">Selecione uma Empresa e uma Obra no topo para carregar o Motor PMG.</p>
+        </div>
+      ) : loading ? (
+        <div className="p-12 flex justify-center"><div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
+      ) : dashboardData.kpis && (
+        <>
+          {/* CARDS DE KPI */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <div className="flex justify-between items-start mb-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Orçamento Capex</p>
+                <Database size={16} className="text-blue-500" />
+              </div>
+              <h4 className="text-2xl font-black text-slate-900">{formatMoney(dashboardData.kpis.globalCapex)}</h4>
+              <p className="text-xs text-slate-500 mt-1 font-medium">Teto Global Aprovado</p>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <div className="flex justify-between items-start mb-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Comprometido</p>
+                <FolderLock size={16} className="text-amber-500" />
+              </div>
+              <h4 className="text-2xl font-black text-slate-900">{formatMoney(dashboardData.kpis.globalContratado)}</h4>
+              <p className="text-xs text-slate-500 mt-1 font-medium">Soma de Contratos + Aditivos</p>
+            </div>
+
+            <div className={`p-6 rounded-2xl shadow-sm border ${dashboardData.kpis.globalSave >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+              <div className="flex justify-between items-start mb-2">
+                <p className={`text-[10px] font-black uppercase tracking-widest ${dashboardData.kpis.globalSave >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                  {dashboardData.kpis.globalSave >= 0 ? 'Economia (Save)' : 'Estouro Orçamental'}
+                </p>
+                {dashboardData.kpis.globalSave >= 0 ? <TrendingUp size={16} className="text-emerald-600" /> : <TrendingDown size={16} className="text-rose-600" />}
+              </div>
+              <h4 className={`text-2xl font-black ${dashboardData.kpis.globalSave >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{formatMoney(dashboardData.kpis.globalSave)}</h4>
+              <p className={`text-xs mt-1 font-bold ${dashboardData.kpis.globalSave >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>Capex vs. Comprometido</p>
+            </div>
+
+            <div className="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800 text-white relative overflow-hidden">
+              <div className="absolute -right-4 -bottom-4 opacity-10"><Activity size={100} /></div>
+              <div className="relative z-10">
+                <div className="flex justify-between items-start mb-2">
+                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Incorrido (Realizado)</p>
+                  <DollarSign size={16} className="text-blue-400" />
+                </div>
+                <h4 className="text-2xl font-black">{formatMoney(dashboardData.kpis.globalIncorrido)}</h4>
+                <p className="text-xs text-slate-400 mt-1 font-medium">Notas Fiscais Retidas / Pagas</p>
+              </div>
+            </div>
+          </div>
+
+          {/* MATRIZ DE EAP - LINHA A LINHA */}
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-6 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+              <h3 className="font-black text-slate-800 flex items-center gap-2"><ListTree size={20} className="text-blue-600"/> Análise de EAP (Linha Base)</h3>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-white border-b-2 border-slate-100 text-slate-500 font-black uppercase tracking-wider text-[10px]">
+                  <tr>
+                    <th className="p-5 pl-6">Rubrica PMG</th>
+                    <th className="p-5 text-right">Orçamento Base (R$)</th>
+                    <th className="p-5 text-right">Contratado (R$)</th>
+                    <th className="p-5 w-48">Consumo Capex (%)</th>
+                    <th className="p-5 text-right">Save Gerado (R$)</th>
+                    <th className="p-5 text-right bg-slate-50/50">Incorrido (NF)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {dashboardData.orcamentos.length === 0 ? (
+                     <tr><td colSpan="6" className="p-12 text-center text-slate-400">EAP não cadastrada para esta obra. Vá em "Estrutura & Contratos".</td></tr>
+                  ) : (
+                    dashboardData.orcamentos.map(linha => (
+                      <tr key={linha.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-5 pl-6">
+                          <span className="inline-block px-2 py-1 bg-slate-800 text-white rounded text-[10px] font-black mr-2">{linha.codigo_centro_custo}</span>
+                          <span className="font-bold text-slate-700">{linha.descricao_servico}</span>
+                        </td>
+                        <td className="p-5 text-right font-black text-slate-900">{formatMoney(linha.capex)}</td>
+                        <td className="p-5 text-right font-bold text-amber-600">{formatMoney(linha.contratadoLinha)}</td>
+                        
+                        {/* Barra de Progresso Comprometido */}
+                        <td className="p-5">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                              <div className={`h-full rounded-full ${linha.percComprometido > 100 ? 'bg-rose-500' : 'bg-blue-500'}`} style={{width: `${Math.min(linha.percComprometido, 100)}%`}}></div>
+                            </div>
+                            <span className="text-[10px] font-black text-slate-500 w-8 text-right">{linha.percComprometido.toFixed(0)}%</span>
+                          </div>
+                        </td>
+
+                        <td className={`p-5 text-right font-black ${linha.saveEap >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {formatMoney(linha.saveEap)}
+                        </td>
+                        <td className="p-5 text-right font-black text-blue-700 bg-blue-50/30">
+                          {formatMoney(linha.incorridoLinha)}
+                          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1">
+                            {linha.percExecutado.toFixed(0)}% Executado
+                          </p>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 // ============================================================================
 // 2. ABA 1: GESTÃO ESTRUTURAL (ORÇAMENTO PMG + CONTRATOS + ADITIVOS)
@@ -915,7 +1126,7 @@ function AbaLotes() {
 // 6. CHASSI PRINCIPAL (SIDEBAR + ROUTING)
 // ============================================================================
 export default function App() {
-  const [activeTab, setActiveTab] = useState('contratos');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [isConnected, setIsConnected] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -932,7 +1143,6 @@ export default function App() {
   return (
     <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden">
       
-      {/* SIDEBAR COM LÓGICA DE RECOLHIMENTO */}
       <aside className={`${isSidebarOpen ? 'w-72' : 'w-20'} bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-20 shrink-0 transition-all duration-300 relative`}>
         <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800 bg-slate-950/50 overflow-hidden">
           {isSidebarOpen && (
@@ -952,14 +1162,17 @@ export default function App() {
         </button>
 
         <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 overflow-x-hidden">
-          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-4 whitespace-nowrap">Estrutura</p>}
+          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-4 whitespace-nowrap">Visão Executiva</p>}
+          <MenuButton isOpen={isSidebarOpen} id="dashboard" icon={<LineChart size={18} className="shrink-0"/>} label="Dashboard PMG" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+          
+          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap">Estrutura</p>}
           <MenuButton isOpen={isSidebarOpen} id="contratos" icon={<Building2 size={18} className="shrink-0"/>} label="EAP & Contratos" active={activeTab === 'contratos'} onClick={() => setActiveTab('contratos')} />
           
           {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap">Operação de Campo</p>}
           <MenuButton isOpen={isSidebarOpen} id="engenharia" icon={<HardHat size={18} className="shrink-0"/>} label="Engenharia (Medições)" active={activeTab === 'engenharia'} onClick={() => setActiveTab('engenharia')} />
           <MenuButton isOpen={isSidebarOpen} id="alfandega" icon={<ShieldCheck size={18} className="shrink-0"/>} label="Alfândega (NFs)" active={activeTab === 'alfandega'} onClick={() => setActiveTab('alfandega')} />
           
-          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap">Executiva</p>}
+          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap">Fechamento</p>}
           <MenuButton isOpen={isSidebarOpen} id="lotes" icon={<FolderLock size={18} className="shrink-0"/>} label="Lotes de Pagamento" active={activeTab === 'lotes'} onClick={() => setActiveTab('lotes')} />
         </nav>
 
@@ -984,6 +1197,7 @@ export default function App() {
           <button className="flex items-center gap-2 text-[10px] font-black text-slate-500 hover:text-rose-600 transition-colors uppercase tracking-widest"><LogOut size={14} /> Logout</button>
         </header>
         <div className="flex-1 overflow-auto p-10 bg-slate-50/50">
+          {activeTab === 'dashboard' && <AbaDashboard />}
           {activeTab === 'contratos' && <AbaContratos />}
           {activeTab === 'engenharia' && <AbaEngenharia />}
           {activeTab === 'alfandega' && <AbaAlfandega />}
