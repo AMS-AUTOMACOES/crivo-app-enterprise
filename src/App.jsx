@@ -23,7 +23,7 @@ import {
 
 // --- 2. DESCOMENTE ESTAS 4 LINHAS DE PRODUÇÃO NO STACKBLITZ ---
 import { createClient } from '@supabase/supabase-js';
-mport * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 // ============================================================================
