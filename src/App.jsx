@@ -12,12 +12,6 @@ import {
   AlertOctagon, CheckSquare, Download, FileSpreadsheet, Pencil, X, ListTree, Search, Menu, History
 } from 'lucide-react';
 
-// --- MOCKS TEMPORÁRIOS PARA O PREVIEW NÃO TRAVAR (APAGUE NO SEU GITHUB) ---
-const chain = { select:()=>chain, eq:()=>chain, order:()=>Promise.resolve({data:[]}), is:()=>Promise.resolve({data:[]}), insert:()=>Promise.resolve({error:null}), update:()=>chain, in:()=>Promise.resolve({error:null}), single:()=>Promise.resolve({data:{id:1}}) };
-const createClient = () => ({ from: () => chain });
-const XLSX = { utils: { json_to_sheet: () => {}, book_new: () => {}, book_append_sheet: () => {} }, writeFile: () => {} };
-// --------------------------------------------------------------------------
-
 // ============================================================================
 // 1. CONEXÃO COM O MOTOR (SUPABASE) - PRODUÇÃO PURA
 // ============================================================================
