@@ -829,7 +829,7 @@ export default function App() {
       try {
         const { error } = await supabase.from('empresas').select('id').limit(1);
         if (!error) setIsConnected(true);
-      } catch (err) { console.error("Offline"); }
+      } catch (err) { console.warn("Status: Aguardando Banco (Offline)"); }
     }
     checkConnection();
   }, []);
