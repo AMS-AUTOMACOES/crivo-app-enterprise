@@ -9,7 +9,8 @@ import * as XLSX from 'xlsx';
 import { 
   Building2, HardHat, ShieldCheck, FolderLock, LineChart, LogOut,
   Plus, ArrowRight, Database, ShoppingCart, Ruler, FileText,
-  AlertOctagon, CheckSquare, Download, FileSpreadsheet, Pencil, X, ListTree, Search, Menu, History, Trash2, CopyPlus
+  AlertOctagon, CheckSquare, Download, FileSpreadsheet, Pencil, X, ListTree, Search, Menu, History, Trash2, CopyPlus,
+  ChevronRight, ChevronDown, CornerDownRight
 } from 'lucide-react';
 
 // ============================================================================
@@ -73,6 +74,16 @@ function CurrencyInput({ value, onChange, placeholder, className, required, disa
 }
 
 // ============================================================================
+// LÓGICA DE RAIZ PARA RATEIOS (.1, .2, etc)
+// ============================================================================
+const getBaseCode = (code) => {
+  if (!code) return '';
+  // Se o código terminar em ".numero", extrai a parte antes do ponto. Ex: CT-001.1 -> CT-001
+  const match = code.match(/^(.*)\.\d+$/);
+  return match ? match[1] : code;
+};
+
+// ============================================================================
 // 2. ABA 1: GESTÃO ESTRUTURAL (ORÇAMENTO PMG + CONTRATOS + ADITIVOS)
 // ============================================================================
 function AbaContratos() {
@@ -106,6 +117,9 @@ function AbaContratos() {
   const [formRateio, setFormRateio] = useState({ orcamento_pmg_id: '', valor_inicial: '', codigo_sugerido: '' });
 
   const [buscaContrato, setBuscaContrato] = useState('');
+  
+  // ESTADO DE ÁRVORE RECOLHÍVEL
+  const [expandedGroups, setExpandedGroups] = useState({});
 
   useEffect(() => { loadEmpresas(); }, []);
   useEffect(() => { if (selectedEmpresaId) loadObras(selectedEmpresaId); else { setObras([]); setSelectedObraId(''); } }, [selectedEmpresaId]);
@@ -143,7 +157,6 @@ function AbaContratos() {
   const handleEditOrcamentoClick = (orc) => { setFormOrcamento({ id: orc.id, codigo_centro_custo: orc.codigo_centro_custo, descricao_servico: orc.descricao_servico, valor_aprovado_teto: formatToCurrencyString(orc.valor_aprovado_teto) }); setIsEditingOrcamento(true); };
   const handleCancelEditOrcamento = () => { setFormOrcamento(initialOrcamentoState); setIsEditingOrcamento(false); };
   
-  // EXCLUSÃO DE PMG (COM PROTEÇÃO)
   const handleDeleteOrcamento = async (id, codigo) => {
     if (!window.confirm(`AUDITORIA: Tem certeza que deseja excluir a linha do PMG "${codigo}"?\n\nO banco de dados bloqueará a exclusão caso existam contratos vinculados a esta rubrica.`)) return;
     const { error } = await supabase.from('orcamento_pmg').delete().eq('id', id);
@@ -179,19 +192,16 @@ function AbaContratos() {
   };
   const handleCancelEdit = () => { setFormContrato(initialContratoState); setIsEditingContrato(false); };
 
-  // EXCLUSÃO DE CONTRATO (COM AUDITORIA)
   const handleDeleteContrato = async (id, codigo) => {
-    if (!window.confirm(`ALERTA DE AUDITORIA:\nDeseja excluir permanentemente o contrato ${codigo}?\n\nNo futuro, esta ação registrará o seu usuário no log de auditoria.\n\nSe existirem Notas Fiscais, Medições ou Pedidos atrelados, o sistema recusará a exclusão.`)) return;
+    if (!window.confirm(`ALERTA DE AUDITORIA:\nDeseja excluir permanentemente o contrato ${codigo}?\n\nSe existirem Notas Fiscais, Medições ou Pedidos atrelados, o sistema recusará a exclusão.`)) return;
     const { error } = await supabase.from('contratos').delete().eq('id', id);
-    if (error) alert(`BLOQUEIO FINANCEIRO:\nO contrato não pode ser excluído pois possui histórico financeiro (Notas, Medições ou Aditivos) amarrado a ele.\n\nDetalhe: ${error.message}`);
+    if (error) alert(`BLOQUEIO FINANCEIRO:\nO contrato não pode ser excluído pois possui histórico financeiro.\n\nDetalhe: ${error.message}`);
     else loadContratos(selectedObraId);
   };
 
-  // ---- INTELIGÊNCIA DE RATEIO (CÓPIA PARA NOVO CC) ----
   const handleOpenRateio = (c) => {
-    // Lógica para gerar o sufixo .1, .2, .3
-    const baseCode = c.codigo_contrato.split('.')[0]; 
-    const relacionados = contratos.filter(ct => ct.codigo_contrato.split('.')[0] === baseCode);
+    const baseCode = getBaseCode(c.codigo_contrato); 
+    const relacionados = contratos.filter(ct => getBaseCode(ct.codigo_contrato) === baseCode);
     const proximoSufixo = relacionados.length;
     const novoCodigo = `${baseCode}.${proximoSufixo}`;
     
@@ -216,7 +226,7 @@ function AbaContratos() {
       data_inicio: contratoBaseRateio.data_inicio, 
       data_fechamento: contratoBaseRateio.data_fechamento,
       valor_inicial: parseCurrency(formRateio.valor_inicial),
-      valor_adiantamento_concedido: 0 // Novo rateio zera o adiantamento para não duplicar dívida
+      valor_adiantamento_concedido: 0
     };
     
     const { error } = await supabase.from('contratos').insert([payload]);
@@ -224,7 +234,6 @@ function AbaContratos() {
     else { setShowModalRateio(false); loadContratos(selectedObraId); }
   };
 
-  // SALVAR ADITIVO NO BANCO
   const handleSaveAditivo = async (e) => {
     e.preventDefault();
     if (!selectedContratoForAditivo) return;
@@ -245,11 +254,35 @@ function AbaContratos() {
   const valorDigitado = parseCurrency(formContrato.valor_inicial);
   const saveGerado = tetoAprovado - somaOutrosContratos - valorDigitado;
 
-  const contratosFiltrados = contratos.filter(c => 
-    (c.razao_social && c.razao_social.toLowerCase().includes(buscaContrato.toLowerCase())) ||
-    (c.codigo_contrato && c.codigo_contrato.toLowerCase().includes(buscaContrato.toLowerCase())) ||
-    (c.centro_custo_raiz && c.centro_custo_raiz.toLowerCase().includes(buscaContrato.toLowerCase()))
-  );
+  // LÓGICA DE AGRUPAMENTO (ÁRVORE)
+  const groupedContracts = {};
+  contratos.forEach(c => {
+    const baseCode = getBaseCode(c.codigo_contrato);
+    if (!groupedContracts[baseCode]) {
+      groupedContracts[baseCode] = { root: null, rateios: [], totalUnified: 0 };
+    }
+    // Determina se é a raiz (não possui sufíxo numérico no split)
+    if (c.codigo_contrato === baseCode) {
+      groupedContracts[baseCode].root = c;
+    } else {
+      groupedContracts[baseCode].rateios.push(c);
+    }
+    const aditivosTotal = c.aditivos_contrato?.reduce((acc, a) => acc + Number(a.valor_acrescimo), 0) || 0;
+    groupedContracts[baseCode].totalUnified += Number(c.valor_inicial) + aditivosTotal;
+  });
+
+  const term = buscaContrato.toLowerCase();
+  const groupsToRender = Object.entries(groupedContracts).filter(([baseCode, group]) => {
+    if (!term) return true;
+    const checkMatch = (c) => c && (
+      (c.razao_social && c.razao_social.toLowerCase().includes(term)) ||
+      (c.codigo_contrato && c.codigo_contrato.toLowerCase().includes(term)) ||
+      (c.centro_custo_raiz && c.centro_custo_raiz.toLowerCase().includes(term))
+    );
+    return checkMatch(group.root) || group.rateios.some(checkMatch);
+  });
+
+  const toggleGroup = (baseCode) => setExpandedGroups(prev => ({...prev, [baseCode]: !prev[baseCode]}));
 
   return (
     <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-6 pb-20">
@@ -486,15 +519,15 @@ function AbaContratos() {
       </div>
 
       {/* =====================================================================
-          LINHA 3: VISUALIZAÇÃO E BUSCA DE CONTRATOS E ADITIVOS
+          LINHA 3: VISUALIZAÇÃO E BUSCA DE CONTRATOS E ADITIVOS (ÁRVORE)
       ===================================================================== */}
       <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-500 ${!selectedObraId ? 'opacity-30 pointer-events-none grayscale blur-[2px]' : ''}`}>
         <div className="p-6 bg-slate-900 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3 text-white">
             <div className="p-2 bg-slate-800 rounded-lg"><Database size={20} className="text-blue-400"/></div>
             <div>
-              <h3 className="font-black text-lg">Banco de Contratos & Aditivos</h3>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{contratosFiltrados.length} Contratos Encontrados</p>
+              <h3 className="font-black text-lg">Árvore de Contratos & Aditivos</h3>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{Object.keys(groupedContracts).length} Grupos Encontrados</p>
             </div>
           </div>
           
@@ -509,63 +542,125 @@ function AbaContratos() {
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-black uppercase tracking-wider text-[10px]">
               <tr>
-                <th className="p-4 pl-6">Cód. Contrato</th>
+                <th className="p-4 pl-6 w-10"></th>
+                <th className="p-4">Cód. Contrato</th>
                 <th className="p-4">Fornecedor</th>
                 <th className="p-4">Linha PMG (CC)</th>
-                <th className="p-4 text-center">Início / Fim</th>
-                <th className="p-4 text-right">Teto Atualizado (R$)</th>
+                <th className="p-4 text-right">Teto Unificado (R$)</th>
                 <th className="p-4 text-center pr-6">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {contratosFiltrados.length === 0 ? (
+              {groupsToRender.length === 0 ? (
                 <tr><td colSpan="6" className="p-12 text-center text-slate-400"><Database size={48} className="mx-auto mb-4 opacity-20"/><p className="text-base font-bold text-slate-500">Nenhum contrato encontrado.</p></td></tr>
               ) : (
-                contratosFiltrados.map(c => {
-                  const totalAditivos = c.aditivos_contrato?.reduce((acc, a) => acc + Number(a.valor_acrescimo), 0) || 0;
-                  const tetoAtualizado = Number(c.valor_inicial) + totalAditivos;
-                  const temAditivos = c.aditivos_contrato && c.aditivos_contrato.length > 0;
+                groupsToRender.map(([baseCode, group]) => {
+                  const root = group.root || group.rateios[0];
+                  if (!root) return null;
+                  
+                  const isExpanded = expandedGroups[baseCode];
+                  const hasRateios = group.rateios.length > 0;
+                  const rootHasAditivos = root.aditivos_contrato && root.aditivos_contrato.length > 0;
+                  const someRateioHasAditivos = group.rateios.some(r => r.aditivos_contrato && r.aditivos_contrato.length > 0);
+                  const hasChildren = hasRateios || rootHasAditivos || someRateioHasAditivos;
 
                   return (
-                    <React.Fragment key={c.id}>
-                      {/* LINHA DO CONTRATO PAI */}
-                      <tr className={`transition-colors hover:bg-slate-50 ${formContrato.id === c.id ? 'bg-amber-50/50' : ''}`}>
-                        <td className="p-4 pl-6 font-black text-slate-900">{c.codigo_contrato}</td>
-                        <td className="p-4"><p className="font-bold text-slate-800 truncate max-w-[200px]">{c.razao_social}</p><p className="text-[10px] text-slate-400 font-mono mt-0.5">CNPJ: {c.cnpj_fornecedor}</p></td>
-                        <td className="p-4"><span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200">{c.centro_custo_raiz}</span></td>
-                        <td className="p-4 text-center text-xs text-slate-500 font-bold">{formatDate(c.data_inicio)} <ArrowRight size={10} className="inline mx-1 opacity-50"/> {formatDate(c.data_fechamento)}</td>
+                    <React.Fragment key={baseCode}>
+                      {/* ROOT ROW (CONTRATO PRINCIPAL) */}
+                      <tr className={`transition-colors hover:bg-slate-50 ${isExpanded ? 'bg-blue-50/30' : ''}`}>
+                        <td className="p-4 pl-6 text-center">
+                          {hasChildren && (
+                            <button onClick={() => toggleGroup(baseCode)} className="p-1 rounded bg-slate-100 text-slate-600 hover:bg-blue-100 hover:text-blue-700 transition-colors">
+                              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                            </button>
+                          )}
+                        </td>
+                        <td className="p-4 font-black text-slate-900">{root.codigo_contrato}</td>
+                        <td className="p-4">
+                          <p className="font-bold text-slate-800 truncate max-w-[200px]" title={root.razao_social}>{root.razao_social}</p>
+                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">CNPJ: {root.cnpj_fornecedor}</p>
+                        </td>
+                        <td className="p-4">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200">
+                            {root.centro_custo_raiz}
+                          </span>
+                        </td>
                         <td className="p-4 text-right">
-                          <p className="font-black text-slate-900 text-base">{formatMoney(tetoAtualizado)}</p>
-                          <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Base: {formatMoney(c.valor_inicial)}</p>
+                          <p className="font-black text-slate-900 text-base" title="Soma da Base + Aditivos + Rateios">{formatMoney(group.totalUnified)}</p>
+                          {hasChildren && <p className="text-[9px] text-blue-600 font-bold uppercase mt-0.5">Teto Global Consolidado</p>}
+                          {!hasChildren && <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Base: {formatMoney(root.valor_inicial)}</p>}
                         </td>
                         <td className="p-4 pr-6 text-center space-x-1.5 whitespace-nowrap">
-                          <button onClick={() => handleOpenRateio(c)} className="inline-flex items-center gap-1 px-2 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-600 hover:text-white transition-colors text-[9px] font-black uppercase tracking-wider" title="Ratear (Clonar) para outro Centro de Custo">
-                            <CopyPlus size={12}/> Rateio PMG
+                          <button onClick={() => handleOpenRateio(root)} className="inline-flex items-center gap-1 px-2 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-600 hover:text-white transition-colors text-[9px] font-black uppercase tracking-wider" title="Ratear (Clonar) para outro Centro de Custo">
+                            <CopyPlus size={12}/> Rateio
                           </button>
-                          <button onClick={() => { setSelectedContratoForAditivo(c); setShowModalAditivo(true); }} className="inline-flex items-center gap-1 px-2 py-1.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-800 hover:text-white transition-colors text-[9px] font-black uppercase tracking-wider" title="Lançar Aditivo ou Supressão">
+                          <button onClick={() => { setSelectedContratoForAditivo(root); setShowModalAditivo(true); }} className="inline-flex items-center gap-1 px-2 py-1.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-800 hover:text-white transition-colors text-[9px] font-black uppercase tracking-wider" title="Lançar Aditivo">
                             <Plus size={12}/> Aditivo
                           </button>
-                          <button onClick={() => handleEditContratoClick(c)} className={`inline-flex p-1.5 rounded-lg border transition-colors ${formContrato.id === c.id ? 'bg-amber-500 text-white border-amber-600' : 'bg-white border-slate-200 text-slate-500 hover:bg-amber-100 hover:text-amber-700 hover:border-amber-300'}`} title="Editar Contrato">
+                          <button onClick={() => handleEditContratoClick(root)} className="inline-flex p-1.5 rounded-lg border bg-white border-slate-200 text-slate-500 hover:bg-amber-100 hover:text-amber-700 hover:border-amber-300" title="Editar Contrato">
                             <Pencil size={14} />
                           </button>
-                          <button onClick={() => handleDeleteContrato(c.id, c.codigo_contrato)} className="inline-flex p-1.5 bg-white border border-slate-200 rounded-lg text-slate-400 hover:bg-rose-100 hover:text-rose-700 hover:border-rose-300 transition-colors" title="Excluir Contrato (Auditoria Ativa)">
+                          <button onClick={() => handleDeleteContrato(root.id, root.codigo_contrato)} className="inline-flex p-1.5 bg-white border border-slate-200 rounded-lg text-slate-400 hover:bg-rose-100 hover:text-rose-700 hover:border-rose-300 transition-colors" title="Excluir Contrato">
                             <Trash2 size={14} />
                           </button>
                         </td>
                       </tr>
                       
-                      {/* LINHAS DE ADITIVOS (CASCATA) */}
-                      {temAditivos && c.aditivos_contrato.map(aditivo => (
-                        <tr key={aditivo.id} className="bg-slate-50/50 border-none">
-                          <td className="p-2 pl-12 text-[11px] font-black text-slate-500 flex items-center gap-2 border-l-2 border-slate-300 ml-6"><History size={12} className="opacity-50"/> {aditivo.numero_aditivo}</td>
-                          <td className="p-2 text-[11px] text-slate-500 truncate" colSpan="2">{aditivo.motivo_justificativa}</td>
-                          <td className="p-2 text-center text-[10px] text-slate-400 font-bold">Assinatura: {formatDate(aditivo.data_assinatura)}</td>
-                          <td className={`p-2 text-right text-xs font-black pr-4 ${aditivo.valor_acrescimo >= 0 ? 'text-slate-700' : 'text-rose-600'}`}>
-                            {aditivo.valor_acrescimo > 0 ? '+' : ''}{formatMoney(aditivo.valor_acrescimo)}
-                          </td>
-                          <td></td>
-                        </tr>
-                      ))}
+                      {/* CHILD ROWS (EXPANDED) */}
+                      {isExpanded && (
+                        <>
+                          {/* 1. Aditivos do Contrato Pai */}
+                          {rootHasAditivos && root.aditivos_contrato.map(aditivo => (
+                            <tr key={aditivo.id} className="bg-slate-50 border-none">
+                              <td></td>
+                              <td className="p-2 pl-8 text-[11px] font-black text-slate-500 flex items-center gap-2 border-l-2 border-slate-300 ml-4"><CornerDownRight size={14} className="text-slate-400"/> {aditivo.numero_aditivo}</td>
+                              <td className="p-2 text-[11px] text-slate-500 truncate" colSpan="2">{aditivo.motivo_justificativa} (Assinatura: {formatDate(aditivo.data_assinatura)})</td>
+                              <td className={`p-2 text-right text-xs font-black pr-4 ${aditivo.valor_acrescimo >= 0 ? 'text-slate-700' : 'text-rose-600'}`}>
+                                {aditivo.valor_acrescimo > 0 ? '+' : ''}{formatMoney(aditivo.valor_acrescimo)}
+                              </td>
+                              <td></td>
+                            </tr>
+                          ))}
+
+                          {/* 2. Rateios (Filhos) e seus respectivos Aditivos */}
+                          {hasRateios && group.rateios.map(r => (
+                            <React.Fragment key={r.id}>
+                              <tr className="bg-indigo-50/30 border-t border-slate-100/50">
+                                <td></td>
+                                <td className="p-3 pl-8 text-xs font-black text-indigo-900 flex items-center gap-2 border-l-2 border-indigo-300 ml-4"><CornerDownRight size={14} className="text-indigo-400"/> {r.codigo_contrato}</td>
+                                <td className="p-3 text-[10px] text-slate-500 font-bold uppercase tracking-wider">Fração de Rateio</td>
+                                <td className="p-3"><span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black bg-indigo-100 text-indigo-700">{r.centro_custo_raiz}</span></td>
+                                <td className="p-3 text-right">
+                                  <p className="font-black text-indigo-900 text-sm">{formatMoney(r.valor_inicial)}</p>
+                                </td>
+                                <td className="p-3 pr-6 text-center space-x-1.5 whitespace-nowrap">
+                                  <button onClick={() => { setSelectedContratoForAditivo(r); setShowModalAditivo(true); }} className="inline-flex items-center gap-1 px-2 py-1 bg-white text-slate-600 border border-slate-200 rounded text-[9px] font-black uppercase hover:bg-slate-800 hover:text-white transition-colors" title="Aditivo no Rateio">
+                                    <Plus size={10}/> Aditivo
+                                  </button>
+                                  <button onClick={() => handleEditContratoClick(r)} className="inline-flex p-1 rounded border bg-white border-slate-200 text-slate-500 hover:bg-amber-100 hover:text-amber-700" title="Editar Rateio">
+                                    <Pencil size={12} />
+                                  </button>
+                                  <button onClick={() => handleDeleteContrato(r.id, r.codigo_contrato)} className="inline-flex p-1 bg-white border border-slate-200 rounded text-slate-400 hover:bg-rose-100 hover:text-rose-700" title="Excluir Rateio">
+                                    <Trash2 size={12} />
+                                  </button>
+                                </td>
+                              </tr>
+                              {/* Aditivos do Rateio */}
+                              {r.aditivos_contrato && r.aditivos_contrato.map(aditivo => (
+                                <tr key={aditivo.id} className="bg-indigo-50/10 border-none">
+                                  <td></td>
+                                  <td className="p-2 pl-12 text-[10px] font-black text-slate-500 flex items-center gap-2 border-l-2 border-slate-200 ml-4"><History size={10} className="opacity-50"/> {aditivo.numero_aditivo}</td>
+                                  <td className="p-2 text-[10px] text-slate-500 truncate" colSpan="2">{aditivo.motivo_justificativa}</td>
+                                  <td className={`p-2 text-right text-xs font-black pr-4 ${aditivo.valor_acrescimo >= 0 ? 'text-slate-700' : 'text-rose-600'}`}>
+                                    {aditivo.valor_acrescimo > 0 ? '+' : ''}{formatMoney(aditivo.valor_acrescimo)}
+                                  </td>
+                                  <td></td>
+                                </tr>
+                              ))}
+                            </React.Fragment>
+                          ))}
+                        </>
+                      )}
                     </React.Fragment>
                   );
                 })
@@ -579,7 +674,7 @@ function AbaContratos() {
 }
 
 // ============================================================================
-// 3. ABA 2: ENGENHARIA (MÓDULOS INTACTOS)
+// 3. ABA 2: ENGENHARIA E OPERAÇÕES
 // ============================================================================
 function AbaEngenharia() {
   const [empresas, setEmpresas] = useState([]);
