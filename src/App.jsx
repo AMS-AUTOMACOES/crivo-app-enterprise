@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// [IMPORTANTE] No StackBlitz, descomente a importação abaixo e apague a função mock:
-// import { createClient } from '@supabase/supabase-js';
-const createClient = () => ({ from: () => ({ select: () => ({ eq: () => ({ order: () => Promise.resolve({data:[]}) }), order: () => Promise.resolve({data:[]}) }), insert: () => Promise.resolve({error:null}) }) });
-
+import { createClient } from '@supabase/supabase-js';
 import { 
   Building2, 
   HardHat, 
@@ -16,29 +13,22 @@ import {
   ShoppingCart,
   Ruler,
   FileText,
-  AlertOctagon,
-  CheckCircle2
+  AlertOctagon
 } from 'lucide-react';
 
 // ============================================================================
-// 1. CONEXÃO COM O MOTOR (SUPABASE)
+// 1. CONEXÃO COM O MOTOR (SUPABASE) - VERSÃO DE PRODUÇÃO
 // ============================================================================
-// [IMPORTANTE] No StackBlitz, descomente as variáveis reais e apague os mocks:
-// const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-// const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Ajuste tático: Validação condicional para evitar que o parser quebre.
+const supabaseUrl = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_SUPABASE_URL : 'https://mock.supabase.co';
+const supabaseAnonKey = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_SUPABASE_ANON_KEY : 'mock-key';
 
-const supabaseUrl = 'https://mock.supabase.co';
-const supabaseAnonKey = 'mock-key';
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export const supabase = createClient(
-  supabaseUrl, 
-  supabaseAnonKey
-);
-
-const formatMoney = (value) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(value || 0);
+const formatMoney = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
 // ============================================================================
-// 2. ABA 1: GESTÃO DE CONTRATOS (ETAPA 2 CONSOLIDADA)
+// 2. ABA 1: GESTÃO DE CONTRATOS (ETAPA 2)
 // ============================================================================
 function AbaContratos() {
   const [empresas, setEmpresas] = useState([]);
@@ -59,38 +49,34 @@ function AbaContratos() {
   useEffect(() => { if (selectedObraId) loadContratos(selectedObraId); else setContratos([]); }, [selectedObraId]);
 
   async function loadEmpresas() {
-    if (!supabaseUrl) return;
     const { data } = await supabase.from('empresas').select('*').order('razao_social');
     if (data) setEmpresas(data);
   }
   async function loadObras(empId) {
-    if (!supabaseUrl) return;
     const { data } = await supabase.from('obras').select('*').eq('empresa_id', empId).order('nome_obra');
     if (data) setObras(data);
   }
   async function loadContratos(obrId) {
-    if (!supabaseUrl) return;
     const { data } = await supabase.from('contratos').select('*').eq('obra_id', obrId).order('codigo_contrato');
     if (data) setContratos(data);
   }
 
   const handleAddEmpresa = async (e) => {
     e.preventDefault();
-    if (!supabaseUrl) return alert("Modo de visualização ativo. Copie o código para o seu StackBlitz.");
     const { error } = await supabase.from('empresas').insert([formEmpresa]);
-    if (error) alert('Erro ao registar Empresa: ' + error.message);
+    if (error) alert('Erro ao registrar Empresa: ' + error.message);
     else { setFormEmpresa({ razao_social: '', cnpj: '' }); loadEmpresas(); }
   };
+  
   const handleAddObra = async (e) => {
     e.preventDefault();
-    if (!supabaseUrl) return alert("Modo de visualização ativo.");
     const { error } = await supabase.from('obras').insert([{ ...formObra, empresa_id: selectedEmpresaId }]);
-    if (error) alert('Erro ao registar Obra: ' + error.message);
+    if (error) alert('Erro ao registrar Obra: ' + error.message);
     else { setFormObra({ codigo_obra: '', nome_obra: '' }); loadObras(selectedEmpresaId); }
   };
+  
   const handleAddContrato = async (e) => {
     e.preventDefault();
-    if (!supabaseUrl) return alert("Modo de visualização ativo.");
     const payload = {
       ...formContrato, obra_id: selectedObraId,
       valor_inicial: parseFloat(formContrato.valor_inicial),
@@ -121,9 +107,10 @@ function AbaContratos() {
           <form onSubmit={handleAddEmpresa} className="space-y-3 pt-6 border-t border-slate-100">
             <input required placeholder="Nome do Grupo/Investidor" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formEmpresa.razao_social} onChange={e => setFormEmpresa({...formEmpresa, razao_social: e.target.value})} />
             <input required placeholder="CNPJ" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formEmpresa.cnpj} onChange={e => setFormEmpresa({...formEmpresa, cnpj: e.target.value})} />
-            <button type="submit" className="w-full bg-slate-900 text-white p-2.5 rounded-lg text-xs font-bold hover:bg-slate-800"><Plus size={14} className="inline mr-1"/> Registar Empresa</button>
+            <button type="submit" className="w-full bg-slate-900 text-white p-2.5 rounded-lg text-xs font-bold hover:bg-slate-800"><Plus size={14} className="inline mr-1"/> Registrar Empresa</button>
           </form>
         </div>
+        
         {/* COLUNA 2: OBRA */}
         <div className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-200 ${!selectedEmpresaId ? 'opacity-30 pointer-events-none' : ''}`}>
           <div className="flex items-center gap-2 mb-6">
@@ -137,9 +124,10 @@ function AbaContratos() {
           <form onSubmit={handleAddObra} className="space-y-3 pt-6 border-t border-slate-100">
             <input required placeholder="Cód. Obra (Ex: OB-202)" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formObra.codigo_obra} onChange={e => setFormObra({...formObra, codigo_obra: e.target.value})} />
             <input required placeholder="Nome do Projeto" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formObra.nome_obra} onChange={e => setFormObra({...formObra, nome_obra: e.target.value})} />
-            <button type="submit" className="w-full bg-slate-900 text-white p-2.5 rounded-lg text-xs font-bold hover:bg-slate-800"><Plus size={14} className="inline mr-1"/> Registar Obra</button>
+            <button type="submit" className="w-full bg-slate-900 text-white p-2.5 rounded-lg text-xs font-bold hover:bg-slate-800"><Plus size={14} className="inline mr-1"/> Registrar Obra</button>
           </form>
         </div>
+        
         {/* COLUNA 3: CONTRATOS */}
         <div className={`bg-white p-6 rounded-2xl shadow-xl border-2 border-emerald-500 ${!selectedObraId ? 'opacity-30 pointer-events-none border-slate-200 shadow-none' : ''}`}>
           <div className="flex items-center gap-2 mb-6">
@@ -147,13 +135,14 @@ function AbaContratos() {
             <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest">3. Contratos Vinculados</h3>
           </div>
           <div className="space-y-3 mb-8 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+            {contratos.length === 0 && <p className="text-xs text-slate-400 text-center py-4">Nenhum contrato ativo.</p>}
             {contratos.map(c => (
               <div key={c.id} className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl flex justify-between items-center">
-                <div>
+                <div className="truncate pr-2">
                   <span className="text-xs font-black text-emerald-900">{c.codigo_contrato}</span>
                   <p className="text-[10px] text-emerald-700 font-bold truncate">{c.razao_social}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                    <p className="text-[9px] font-black text-slate-400 uppercase leading-none">Teto</p>
                    <p className="text-[11px] font-black text-slate-900">{formatMoney(c.valor_inicial)}</p>
                 </div>
@@ -182,7 +171,7 @@ function AbaContratos() {
 }
 
 // ============================================================================
-// 3. ABA 2: ENGENHARIA E OPERAÇÃO (ETAPA 3 CONSOLIDADA)
+// 3. ABA 2: ENGENHARIA E OPERAÇÃO DE CAMPO (ETAPA 3)
 // ============================================================================
 function AbaEngenharia() {
   const [empresas, setEmpresas] = useState([]);
@@ -221,12 +210,13 @@ function AbaEngenharia() {
 
   return (
     <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-8">
-      <header><h2 className="text-3xl font-black text-slate-900 tracking-tight">Engenharia e Aprovações</h2><p className="text-slate-500">Registo de Avanço Físico (Medições) e Aprovação de Materiais.</p></header>
+      <header><h2 className="text-3xl font-black text-slate-900 tracking-tight">Engenharia e Aprovações</h2><p className="text-slate-500">Registro de Avanço Físico (Medições) e Aprovação de Materiais.</p></header>
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4">
         <div className="flex-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">1. Investidor</label><select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={selectedEmpresaId} onChange={e => setSelectedEmpresaId(e.target.value)}><option value="">-- Empresa --</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.razao_social}</option>)}</select></div>
         <div className="flex-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">2. Obra</label><select disabled={!selectedEmpresaId} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={selectedObraId} onChange={e => setSelectedObraId(e.target.value)}><option value="">-- Obra --</option>{obras.map(o => <option key={o.id} value={o.id}>{o.codigo_obra}</option>)}</select></div>
         <div className="flex-1"><label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1 block">3. Contrato Alvo</label><select disabled={!selectedObraId} className="w-full p-3 bg-emerald-50 border border-emerald-200 rounded-xl font-black text-emerald-800" value={selectedContratoId} onChange={e => setSelectedContratoId(e.target.value)}><option value="">-- Contrato --</option>{contratos.map(c => <option key={c.id} value={c.id}>{c.codigo_contrato}</option>)}</select></div>
       </div>
+      
       <div className={`grid grid-cols-1 lg:grid-cols-2 gap-8 ${!selectedContratoId ? 'opacity-30 pointer-events-none blur-sm' : ''}`}>
         {/* PEDIDOS */}
         <div className="bg-white p-6 rounded-2xl shadow-md border-t-4 border-t-blue-500 border-x border-b border-slate-200">
@@ -259,7 +249,6 @@ function AbaEngenharia() {
 // 4. ABA 3: ALFÂNDEGA (NOTAS FISCAIS) - ETAPA 4
 // ============================================================================
 function AbaAlfandega() {
-  // Cascata Estrutural
   const [empresas, setEmpresas] = useState([]);
   const [obras, setObras] = useState([]);
   const [contratos, setContratos] = useState([]);
@@ -267,20 +256,17 @@ function AbaAlfandega() {
   const [selectedObraId, setSelectedObraId] = useState('');
   const [selectedContratoId, setSelectedContratoId] = useState('');
 
-  // Fontes de Limite Físico
   const [pedidos, setPedidos] = useState([]);
   const [medicoes, setMedicoes] = useState([]);
   const [notasFiscais, setNotasFiscais] = useState([]);
 
-  // Estado do Formulário da NF
-  const [tipoDocumento, setTipoDocumento] = useState('Serviço'); // Serviço | Material | Liberação Retenção
+  const [tipoDocumento, setTipoDocumento] = useState('Serviço'); 
   const [formNF, setFormNF] = useState({
     numero_documento: '', data_emissao: '', data_vencimento: '',
     valor_bruto: '', impostos_destacados: '', valor_retencao_tecnica: '', valor_amortizado_adiantamento: '',
     pedido_id: '', medicao_id: ''
   });
 
-  // Carregamentos Iniciais e Reativos
   useEffect(() => { loadEmpresas(); }, []);
   useEffect(() => { if (selectedEmpresaId) loadObras(); else { setObras([]); setSelectedObraId(''); } }, [selectedEmpresaId]);
   useEffect(() => { if (selectedObraId) loadContratos(); else { setContratos([]); setSelectedContratoId(''); } }, [selectedObraId]);
@@ -310,11 +296,8 @@ function AbaAlfandega() {
 
   const handleSubmitNF = async (e) => {
     e.preventDefault();
-    if (!supabaseUrl) return alert("Ambiente visualização.");
-
-    // Validações Manuais Básicas antes de bater na trava do banco
-    if (tipoDocumento === 'Material' && !formNF.pedido_id) return alert("Obrigatório selecionar o Pedido de Compra que aprova este Material.");
-    if (tipoDocumento === 'Serviço' && !formNF.medicao_id) return alert("Obrigatório selecionar o Boletim de Medição que aprova este Serviço.");
+    if (tipoDocumento === 'Material' && !formNF.pedido_id) return alert("Obrigatório selecionar o Pedido de Compra.");
+    if (tipoDocumento === 'Serviço' && !formNF.medicao_id) return alert("Obrigatório selecionar o Boletim de Medição.");
 
     const payload = {
       contrato_id: selectedContratoId,
@@ -367,7 +350,6 @@ function AbaAlfandega() {
           <h3 className="font-black text-slate-900 text-lg mb-6 flex items-center gap-2"><FileText size={20} className="text-rose-600"/> Lançamento Seguro</h3>
           
           <form onSubmit={handleSubmitNF} className="space-y-4 relative z-10">
-            {/* Seletor de Tipo e Origem de Lastro */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6">
                <label className="block text-xs font-bold text-slate-700 mb-2">Qual a natureza do pagamento?</label>
                <div className="flex gap-2 mb-4">
@@ -376,7 +358,6 @@ function AbaAlfandega() {
                   ))}
                </div>
 
-               {/* Dinâmico conforme o Tipo */}
                {tipoDocumento === 'Serviço' && (
                  <div>
                     <label className="text-[10px] font-black text-emerald-600 uppercase mb-1 block">Vincular a qual Medição Aprovada?</label>
@@ -397,7 +378,6 @@ function AbaAlfandega() {
                )}
             </div>
 
-            {/* Dados Fiscais */}
             <div className="grid grid-cols-2 gap-3">
               <div><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Nº Fatura</label><input required className="w-full p-2.5 border border-slate-200 rounded-lg text-sm font-bold" value={formNF.numero_documento} onChange={e => setFormNF({...formNF, numero_documento: e.target.value})} /></div>
               <div><label className="text-[10px] font-bold text-rose-600 uppercase ml-1">Valor Bruto (R$)</label><input required type="number" step="0.01" className="w-full p-2.5 border border-rose-300 bg-rose-50/50 rounded-lg text-sm font-black text-rose-900" value={formNF.valor_bruto} onChange={e => setFormNF({...formNF, valor_bruto: e.target.value})} /></div>
@@ -410,7 +390,7 @@ function AbaAlfandega() {
 
             <div className="border-t border-slate-100 pt-4 mt-4 grid grid-cols-2 gap-3">
               <div><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Retenção Técnica (R$)</label><input type="number" step="0.01" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formNF.valor_retencao_tecnica} onChange={e => setFormNF({...formNF, valor_retencao_tecnica: e.target.value})} /></div>
-              <div><label className="text-[10px] font-bold text-amber-600 uppercase ml-1">Amortiza Adiantamento?</label><input type="number" step="0.01" placeholder="Valor (R$)" className="w-full p-2.5 border border-amber-200 bg-amber-50 rounded-lg text-sm font-bold text-amber-800" value={formNF.valor_amortizado_adiantamento} onChange={e => setFormNF({...formNF, valor_amortizado_adiantamento: e.target.value})} /></div>
+              <div><label className="text-[10px] font-bold text-amber-600 uppercase ml-1">Amortiza Adiantamento?</label><input type="number" step="0.01" className="w-full p-2.5 border border-amber-200 bg-amber-50 rounded-lg text-sm font-bold text-amber-800" value={formNF.valor_amortizado_adiantamento} onChange={e => setFormNF({...formNF, valor_amortizado_adiantamento: e.target.value})} /></div>
             </div>
 
             <button type="submit" className="w-full bg-slate-900 text-white p-4 rounded-xl text-sm font-black hover:bg-rose-700 transition-all shadow-lg flex justify-center items-center gap-2 mt-6">
@@ -495,10 +475,8 @@ export default function App() {
   useEffect(() => {
     async function checkConnection() {
       try {
-        if (supabaseUrl && !supabaseUrl.includes('mock')) {
-           const { error } = await supabase.from('empresas').select('id').limit(1);
-           if (!error) setIsConnected(true);
-        }
+        const { error } = await supabase.from('empresas').select('id').limit(1);
+        if (!error) setIsConnected(true);
       } catch (err) { console.error("Database status: Offline"); }
     }
     checkConnection();
