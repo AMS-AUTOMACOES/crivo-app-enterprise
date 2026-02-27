@@ -10,7 +10,7 @@ import {
   Building2, HardHat, ShieldCheck, FolderLock, LineChart, LogOut,
   Plus, ArrowRight, Database, ShoppingCart, Ruler, FileText,
   AlertOctagon, CheckSquare, Download, FileSpreadsheet, Pencil, X, ListTree, Search, Menu, History, Trash2, CopyPlus,
-  ChevronRight, ChevronDown, CornerDownRight, PieChart, TrendingUp, TrendingDown, DollarSign, Activity, Wallet, Percent
+  ChevronRight, ChevronDown, CornerDownRight, PieChart, TrendingUp, TrendingDown, DollarSign, Activity, Wallet, Percent, Users
 } from 'lucide-react';
 
 // ============================================================================
@@ -84,16 +84,18 @@ function AbaDashboard() {
   const [selectedEmpresaId, setSelectedEmpresaId] = useState('');
   const [selectedObraId, setSelectedObraId] = useState('');
   
-  const [dashboardData, setDashboardData] = useState({ orcamentos: [], kpis: null });
+  const [dashboardData, setDashboardData] = useState({ orcamentos: [], contratosConsolidados: [], kpis: null });
   const [loading, setLoading] = useState(false);
   
   // Controles de UX do Dashboard
+  const [viewMode, setViewMode] = useState('eap'); // 'eap' ou 'fornecedor'
   const [buscaDashboard, setBuscaDashboard] = useState('');
-  const [expandedCCs, setExpandedCCs] = useState({}); // Controla quais nós da EAP estão abertos
+  const [expandedCCs, setExpandedCCs] = useState({}); // Controla EAP abertas
+  const [expandedContratos, setExpandedContratos] = useState({}); // Controla Fornecedores abertos
 
   useEffect(() => { loadEmpresas(); }, []);
   useEffect(() => { if (selectedEmpresaId) loadObras(selectedEmpresaId); else { setObras([]); setSelectedObraId(''); } }, [selectedEmpresaId]);
-  useEffect(() => { if (selectedObraId) buildDashboard(selectedObraId); else setDashboardData({ orcamentos: [], kpis: null }); }, [selectedObraId]);
+  useEffect(() => { if (selectedObraId) buildDashboard(selectedObraId); else setDashboardData({ orcamentos: [], contratosConsolidados: [], kpis: null }); }, [selectedObraId]);
 
   async function loadEmpresas() { const { data } = await supabase.from('empresas').select('*').order('razao_social'); setEmpresas(data || []); }
   async function loadObras(empId) { const { data } = await supabase.from('obras').select('*').eq('empresa_id', empId).order('nome_obra'); setObras(data || []); }
@@ -114,7 +116,7 @@ function AbaDashboard() {
 
       if (!orcData) return;
 
-      // Agregação de Notas por Contrato (Para exibir o detalhe por contrato na árvore)
+      // Agregação de Notas por Contrato
       const nfAggByContract = {};
       (nfData || []).forEach(nf => {
         const cId = nf.contratos.id;
@@ -127,22 +129,20 @@ function AbaDashboard() {
         nfAggByContract[cId].amortizadoAcumulado += Number(nf.valor_amortizado_adiantamento || 0);
         
         if (nf.classificacao_faturamento === 'Indireto') nfAggByContract[cId].fatIndireto += v;
-        else nfAggByContract[cId].fatDireto += v; // Trata vazio ou 'Direto' como Direto
+        else nfAggByContract[cId].fatDireto += v; 
       });
 
       let globalCapex = 0; let globalContratado = 0; let globalIncorrido = 0;
 
+      // CONSTRUÇÃO MATRIZ 1: VISÃO EAP
       const linhasMatematicas = orcData.map(orc => {
         const capex = Number(orc.valor_aprovado_teto);
         globalCapex += capex;
 
-        // Varrer contratos desta EAP
         const contratosDaLinha = (contData || []).filter(c => c.orcamento_pmg_id === orc.id).map(c => {
-           // Calcular matemática individual do contrato
            const aditivosVal = c.aditivos_contrato?.reduce((acc, a) => acc + Number(a.valor_acrescimo), 0) || 0;
            const tetoAtualizado = Number(c.valor_inicial) + aditivosVal;
            const agg = nfAggByContract[c.id] || { fatDireto: 0, fatIndireto: 0, retencaoAcumulada: 0, amortizadoAcumulado: 0, totalIncorrido: 0 };
-           
            const adiantamentoTotal = Number(c.valor_adiantamento_concedido) || 0;
            const saldoAdiantamento = adiantamentoTotal - agg.amortizadoAcumulado;
 
@@ -161,10 +161,53 @@ function AbaDashboard() {
         return { ...orc, capex, contratadoLinha, saveEap, incorridoLinha, percComprometido, contratosDetalhes: contratosDaLinha };
       });
 
+      // CONSTRUÇÃO MATRIZ 2: VISÃO FORNECEDOR/CONTRATO CONSOLIDADO
+      const contratosAgg = {};
+      (contData || []).forEach(c => {
+         const baseCode = getBaseCode(c.codigo_contrato);
+         if (!contratosAgg[baseCode]) {
+             contratosAgg[baseCode] = {
+                 baseCode,
+                 fornecedor: c.razao_social,
+                 cnpj: c.cnpj_fornecedor,
+                 tetoGlobal: 0,
+                 fatDiretoGlobal: 0,
+                 fatIndiretoGlobal: 0,
+                 retencaoGlobal: 0,
+                 adiantamentoConcedidoGlobal: 0,
+                 amortizadoGlobal: 0,
+                 faccoes: [] // rateios e distribuição
+             };
+         }
+         
+         const aditivosVal = c.aditivos_contrato?.reduce((acc, a) => acc + Number(a.valor_acrescimo), 0) || 0;
+         const tetoAtualizado = Number(c.valor_inicial) + aditivosVal;
+         const agg = nfAggByContract[c.id] || { fatDireto: 0, fatIndireto: 0, retencaoAcumulada: 0, amortizadoAcumulado: 0, totalIncorrido: 0 };
+         
+         contratosAgg[baseCode].tetoGlobal += tetoAtualizado;
+         contratosAgg[baseCode].fatDiretoGlobal += agg.fatDireto;
+         contratosAgg[baseCode].fatIndiretoGlobal += agg.fatIndireto;
+         contratosAgg[baseCode].retencaoGlobal += agg.retencaoAcumulada;
+         contratosAgg[baseCode].adiantamentoConcedidoGlobal += Number(c.valor_adiantamento_concedido) || 0;
+         contratosAgg[baseCode].amortizadoGlobal += agg.amortizadoAcumulado;
+
+         const orcamentoCorrespondente = orcData.find(o => o.id === c.orcamento_pmg_id);
+
+         contratosAgg[baseCode].faccoes.push({
+             ...c,
+             tetoAtualizado,
+             ...agg,
+             codigo_centro_custo: orcamentoCorrespondente?.codigo_centro_custo || 'N/A',
+             descricao_centro_custo: orcamentoCorrespondente?.descricao_servico || 'N/A',
+             saldoAdiantamento: (Number(c.valor_adiantamento_concedido) || 0) - agg.amortizadoAcumulado
+         });
+      });
+
       const globalSave = globalCapex - globalContratado;
       
       setDashboardData({
         orcamentos: linhasMatematicas,
+        contratosConsolidados: Object.values(contratosAgg),
         kpis: { globalCapex, globalContratado, globalSave, globalIncorrido }
       });
 
@@ -172,26 +215,28 @@ function AbaDashboard() {
     setLoading(false);
   }
 
-  const toggleCC = (id) => {
-    setExpandedCCs(prev => ({...prev, [id]: !prev[id]}));
-  };
+  const toggleCC = (id) => setExpandedCCs(prev => ({...prev, [id]: !prev[id]}));
+  const toggleContrato = (baseCode) => setExpandedContratos(prev => ({...prev, [baseCode]: !prev[baseCode]}));
 
-  // Motor de Busca Ativo na Matriz
+  // FILTROS ATIVOS
   const term = buscaDashboard.toLowerCase();
+  
+  // Filtro EAP
   const orcamentosFiltrados = dashboardData.orcamentos.filter(orc => {
     if (!term) return true;
     const matchCC = orc.codigo_centro_custo.toLowerCase().includes(term) || orc.descricao_servico.toLowerCase().includes(term);
-    const matchContract = orc.contratosDetalhes.some(c => 
-      c.codigo_contrato.toLowerCase().includes(term) || 
-      c.razao_social.toLowerCase().includes(term) ||
-      (c.cnpj_fornecedor && c.cnpj_fornecedor.includes(term))
-    );
-    
-    // Auto-expandir se achou o contrato escondido dentro da EAP
-    if (matchContract && !expandedCCs[orc.id] && term.length > 2) {
-      setTimeout(() => setExpandedCCs(prev => ({...prev, [orc.id]: true})), 10);
-    }
+    const matchContract = orc.contratosDetalhes.some(c => c.codigo_contrato.toLowerCase().includes(term) || c.razao_social.toLowerCase().includes(term) || (c.cnpj_fornecedor && c.cnpj_fornecedor.includes(term)));
+    if (matchContract && !expandedCCs[orc.id] && term.length > 2) setTimeout(() => setExpandedCCs(prev => ({...prev, [orc.id]: true})), 10);
     return matchCC || matchContract;
+  });
+
+  // Filtro Consolidado
+  const consolidadosFiltrados = dashboardData.contratosConsolidados.filter(c => {
+    if (!term) return true;
+    const matchBase = c.baseCode.toLowerCase().includes(term) || c.fornecedor.toLowerCase().includes(term) || (c.cnpj && c.cnpj.includes(term));
+    const matchPMGFacao = c.faccoes.some(f => f.codigo_centro_custo.toLowerCase().includes(term));
+    if (matchPMGFacao && !expandedContratos[c.baseCode] && term.length > 2) setTimeout(() => setExpandedContratos(prev => ({...prev, [c.baseCode]: true})), 10);
+    return matchBase || matchPMGFacao;
   });
 
   return (
@@ -223,7 +268,7 @@ function AbaDashboard() {
         <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 bg-white/50">
           <PieChart size={48} className="mx-auto mb-4 opacity-20" />
           <h3 className="text-xl font-black text-slate-600 mb-2">Aguardando Parâmetros</h3>
-          <p className="text-sm font-medium">Selecione uma Empresa e uma Obra no topo para carregar a matriz PMG.</p>
+          <p className="text-sm font-medium">Selecione uma Empresa e uma Obra no topo para carregar as matrizes de análise.</p>
         </div>
       ) : loading ? (
         <div className="p-12 flex justify-center"><div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
@@ -273,125 +318,237 @@ function AbaDashboard() {
             </div>
           </div>
 
-          {/* MATRIZ DE EAP - LINHA A LINHA COM VISÃO EM ÁRVORE */}
+          {/* O "PIVOT" DE VISUALIZAÇÃO */}
           <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-5 bg-slate-900 flex flex-col sm:flex-row justify-between items-center gap-4">
-              <h3 className="font-black text-white flex items-center gap-2"><ListTree size={18} className="text-blue-400"/> EAP & Matriz de Contratos</h3>
+              
+              {/* Toggle de Visões */}
+              <div className="flex bg-slate-800 p-1.5 rounded-xl border border-slate-700">
+                <button 
+                  onClick={() => setViewMode('eap')} 
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${viewMode === 'eap' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+                >
+                  <ListTree size={16}/> Matriz EAP (Obra)
+                </button>
+                <button 
+                  onClick={() => setViewMode('fornecedor')} 
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${viewMode === 'fornecedor' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+                >
+                  <Users size={16}/> Consolidado (Fornecedor)
+                </button>
+              </div>
+
+              {/* Busca Global */}
               <div className="relative w-full sm:w-80">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search size={14} className="text-slate-400"/></div>
-                <input type="text" placeholder="Buscar por código, fornecedor ou CC..." className="w-full pl-9 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none" value={buscaDashboard} onChange={e => setBuscaDashboard(e.target.value)} />
+                <input type="text" placeholder="Buscar na matriz atual..." className="w-full pl-9 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" value={buscaDashboard} onChange={e => setBuscaDashboard(e.target.value)} />
                 {buscaDashboard && <button onClick={() => setBuscaDashboard('')} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"><X size={14}/></button>}
               </div>
             </div>
             
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left border-collapse">
-                <thead className="bg-slate-100 border-b-2 border-slate-200 text-slate-600 font-black uppercase tracking-wider text-[9px]">
-                  <tr>
-                    <th className="p-4 pl-6">Rubrica PMG (Nó Pai)</th>
-                    <th className="p-4 text-right">Orçamento (Capex)</th>
-                    <th className="p-4 text-right">Teto Contratado</th>
-                    <th className="p-4 w-40 text-center">Consumo (%)</th>
-                    <th className="p-4 text-right">Save Gerado</th>
-                    <th className="p-4 text-right">Fat. Incorrido</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {orcamentosFiltrados.length === 0 ? (
-                     <tr><td colSpan="6" className="p-12 text-center text-slate-400">Nenhum dado corresponde à sua busca.</td></tr>
-                  ) : (
-                    orcamentosFiltrados.map(linha => {
-                      const isExpanded = expandedCCs[linha.id];
-                      const hasContracts = linha.contratosDetalhes && linha.contratosDetalhes.length > 0;
-                      
-                      return (
-                        <React.Fragment key={linha.id}>
-                          {/* NÓ PAI (EAP) */}
-                          <tr className={`transition-colors cursor-pointer group ${isExpanded ? 'bg-blue-50/50' : 'hover:bg-slate-50'}`} onClick={() => hasContracts && toggleCC(linha.id)}>
-                            <td className="p-4 pl-4 flex items-center gap-2">
-                              <button className={`p-1 rounded-md transition-colors ${hasContracts ? 'text-slate-600 bg-slate-200 group-hover:bg-blue-200' : 'text-transparent cursor-default'}`}>
-                                {hasContracts ? (isExpanded ? <ChevronDown size={14}/> : <ChevronRight size={14}/>) : <ChevronRight size={14}/>}
-                              </button>
-                              <div>
-                                <span className="inline-block px-1.5 py-0.5 bg-slate-800 text-white rounded text-[10px] font-black mr-1.5">{linha.codigo_centro_custo}</span>
-                                <span className="font-bold text-slate-800 text-xs">{linha.descricao_servico}</span>
-                              </div>
-                            </td>
-                            <td className="p-4 text-right font-black text-slate-900">{formatMoney(linha.capex)}</td>
-                            <td className="p-4 text-right font-bold text-amber-700">{formatMoney(linha.contratadoLinha)}</td>
-                            
-                            <td className="p-4">
-                              <div className="flex items-center gap-2 justify-end">
-                                <div className="flex-1 bg-slate-200 rounded-full h-2 overflow-hidden max-w-[80px]">
-                                  <div className={`h-full rounded-full ${linha.percComprometido > 100 ? 'bg-rose-500' : 'bg-blue-500'}`} style={{width: `${Math.min(linha.percComprometido, 100)}%`}}></div>
-                                </div>
-                                <span className="text-[10px] font-black text-slate-500 w-8">{linha.percComprometido.toFixed(0)}%</span>
-                              </div>
-                            </td>
-
-                            <td className={`p-4 text-right font-black ${linha.saveEap >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                              {formatMoney(linha.saveEap)}
-                            </td>
-                            <td className="p-4 text-right font-black text-blue-700">
-                              {formatMoney(linha.incorridoLinha)}
-                            </td>
-                          </tr>
-
-                          {/* NÓS FILHOS (CONTRATOS) EXPANDIDOS */}
-                          {isExpanded && hasContracts && (
-                            <tr className="bg-slate-50/80 border-none">
-                              <td colSpan="6" className="p-0">
-                                <div className="pl-12 pr-6 py-4 bg-gradient-to-r from-blue-50/30 to-slate-50/30 border-l-4 border-l-blue-400 shadow-inner">
-                                  <table className="w-full text-left">
-                                    <thead className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
-                                      <tr>
-                                        <th className="pb-2 w-1/4">Fornecedor Vinculado</th>
-                                        <th className="pb-2 text-right">Teto (Base + Adt.)</th>
-                                        <th className="pb-2 text-right">Adiantamento (Saldo)</th>
-                                        <th className="pb-2 text-right text-emerald-600">Fat. Direto (Inquilino)</th>
-                                        <th className="pb-2 text-right text-amber-600">Fat. Indireto (Construtora)</th>
-                                        <th className="pb-2 text-right text-rose-600">Retenção Cativa</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100/50">
-                                      {linha.contratosDetalhes.map(c => (
-                                        <tr key={c.id} className="hover:bg-white transition-colors">
-                                          <td className="py-3">
-                                            <div className="flex items-center gap-2">
-                                              <CornerDownRight size={12} className="text-slate-300"/>
-                                              <div>
-                                                <p className="font-black text-slate-800 text-[11px]">{c.codigo_contrato}</p>
-                                                <p className="text-[9px] font-bold text-slate-500 truncate max-w-[200px]" title={c.razao_social}>{c.razao_social}</p>
-                                              </div>
-                                            </div>
-                                          </td>
-                                          <td className="py-3 text-right font-black text-slate-700 text-[11px]">{formatMoney(c.tetoAtualizado)}</td>
-                                          <td className="py-3 text-right">
-                                            {c.adiantamentoTotal > 0 ? (
-                                              <>
-                                                <span className="font-bold text-slate-800 text-[11px] block">{formatMoney(c.saldoAdiantamento)}</span>
-                                                <span className="text-[8px] text-slate-400 block mt-0.5">CONCEDIDO: {formatMoney(c.adiantamentoTotal)}</span>
-                                              </>
-                                            ) : <span className="text-slate-300 text-[10px]">-</span>}
-                                          </td>
-                                          <td className="py-3 text-right font-black text-emerald-700 text-[11px]">{formatMoney(c.fatDireto)}</td>
-                                          <td className="py-3 text-right font-black text-amber-700 text-[11px]">{formatMoney(c.fatIndireto)}</td>
-                                          <td className="py-3 text-right font-black text-rose-700 text-[11px]">{formatMoney(c.retencaoAcumulada)}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
+            {/* VISÃO 1: MATRIZ EAP (AGRUPADA POR CENTRO DE CUSTO) */}
+            {viewMode === 'eap' && (
+              <div className="overflow-x-auto animate-in fade-in">
+                <table className="w-full text-sm text-left border-collapse">
+                  <thead className="bg-slate-100 border-b-2 border-slate-200 text-slate-600 font-black uppercase tracking-wider text-[9px]">
+                    <tr>
+                      <th className="p-4 pl-6">Rubrica PMG (Nó Pai)</th>
+                      <th className="p-4 text-right">Orçamento (Capex)</th>
+                      <th className="p-4 text-right">Teto Contratado</th>
+                      <th className="p-4 w-40 text-center">Consumo (%)</th>
+                      <th className="p-4 text-right">Save Gerado</th>
+                      <th className="p-4 text-right">Fat. Incorrido</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {orcamentosFiltrados.length === 0 ? (
+                       <tr><td colSpan="6" className="p-12 text-center text-slate-400">Nenhum dado corresponde à sua busca.</td></tr>
+                    ) : (
+                      orcamentosFiltrados.map(linha => {
+                        const isExpanded = expandedCCs[linha.id];
+                        const hasContracts = linha.contratosDetalhes && linha.contratosDetalhes.length > 0;
+                        
+                        return (
+                          <React.Fragment key={linha.id}>
+                            <tr className={`transition-colors cursor-pointer group ${isExpanded ? 'bg-blue-50/50' : 'hover:bg-slate-50'}`} onClick={() => hasContracts && toggleCC(linha.id)}>
+                              <td className="p-4 pl-4 flex items-center gap-2">
+                                <button className={`p-1 rounded-md transition-colors ${hasContracts ? 'text-slate-600 bg-slate-200 group-hover:bg-blue-200' : 'text-transparent cursor-default'}`}>
+                                  {hasContracts ? (isExpanded ? <ChevronDown size={14}/> : <ChevronRight size={14}/>) : <ChevronRight size={14}/>}
+                                </button>
+                                <div>
+                                  <span className="inline-block px-1.5 py-0.5 bg-slate-800 text-white rounded text-[10px] font-black mr-1.5">{linha.codigo_centro_custo}</span>
+                                  <span className="font-bold text-slate-800 text-xs">{linha.descricao_servico}</span>
                                 </div>
                               </td>
+                              <td className="p-4 text-right font-black text-slate-900">{formatMoney(linha.capex)}</td>
+                              <td className="p-4 text-right font-bold text-amber-700">{formatMoney(linha.contratadoLinha)}</td>
+                              <td className="p-4">
+                                <div className="flex items-center gap-2 justify-end">
+                                  <div className="flex-1 bg-slate-200 rounded-full h-2 overflow-hidden max-w-[80px]">
+                                    <div className={`h-full rounded-full ${linha.percComprometido > 100 ? 'bg-rose-500' : 'bg-blue-500'}`} style={{width: `${Math.min(linha.percComprometido, 100)}%`}}></div>
+                                  </div>
+                                  <span className="text-[10px] font-black text-slate-500 w-8">{linha.percComprometido.toFixed(0)}%</span>
+                                </div>
+                              </td>
+                              <td className={`p-4 text-right font-black ${linha.saveEap >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatMoney(linha.saveEap)}</td>
+                              <td className="p-4 text-right font-black text-blue-700">{formatMoney(linha.incorridoLinha)}</td>
                             </tr>
-                          )}
-                        </React.Fragment>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+
+                            {isExpanded && hasContracts && (
+                              <tr className="bg-slate-50/80 border-none">
+                                <td colSpan="6" className="p-0">
+                                  <div className="pl-12 pr-6 py-4 bg-gradient-to-r from-blue-50/30 to-slate-50/30 border-l-4 border-l-blue-400 shadow-inner">
+                                    <table className="w-full text-left">
+                                      <thead className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                                        <tr>
+                                          <th className="pb-2 w-1/4">Contrato Parcial (Desta Linha)</th>
+                                          <th className="pb-2 text-right">Teto (Base + Adt.)</th>
+                                          <th className="pb-2 text-right">Adiantamento (Saldo)</th>
+                                          <th className="pb-2 text-right text-emerald-600">Fat. Direto (Inquilino)</th>
+                                          <th className="pb-2 text-right text-amber-600">Fat. Indireto (Construtora)</th>
+                                          <th className="pb-2 text-right text-rose-600">Retenção Cativa</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100/50">
+                                        {linha.contratosDetalhes.map(c => (
+                                          <tr key={c.id} className="hover:bg-white transition-colors">
+                                            <td className="py-3">
+                                              <div className="flex items-center gap-2">
+                                                <CornerDownRight size={12} className="text-slate-300"/>
+                                                <div>
+                                                  <p className="font-black text-slate-800 text-[11px]">{c.codigo_contrato}</p>
+                                                  <p className="text-[9px] font-bold text-slate-500 truncate max-w-[200px]" title={c.razao_social}>{c.razao_social}</p>
+                                                </div>
+                                              </div>
+                                            </td>
+                                            <td className="py-3 text-right font-black text-slate-700 text-[11px]">{formatMoney(c.tetoAtualizado)}</td>
+                                            <td className="py-3 text-right">
+                                              {c.adiantamentoTotal > 0 ? (
+                                                <>
+                                                  <span className="font-bold text-slate-800 text-[11px] block">{formatMoney(c.saldoAdiantamento)}</span>
+                                                  <span className="text-[8px] text-slate-400 block mt-0.5">CONCEDIDO: {formatMoney(c.adiantamentoTotal)}</span>
+                                                </>
+                                              ) : <span className="text-slate-300 text-[10px]">-</span>}
+                                            </td>
+                                            <td className="py-3 text-right font-black text-emerald-700 text-[11px]">{formatMoney(c.fatDireto)}</td>
+                                            <td className="py-3 text-right font-black text-amber-700 text-[11px]">{formatMoney(c.fatIndireto)}</td>
+                                            <td className="py-3 text-right font-black text-rose-700 text-[11px]">{formatMoney(c.retencaoAcumulada)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* VISÃO 2: MATRIZ CONSOLIDADA (AGRUPADA POR FORNECEDOR/CONTRATO RAIZ) */}
+            {viewMode === 'fornecedor' && (
+              <div className="overflow-x-auto animate-in fade-in">
+                <table className="w-full text-sm text-left border-collapse">
+                  <thead className="bg-indigo-50 border-b-2 border-indigo-100 text-indigo-800 font-black uppercase tracking-wider text-[9px]">
+                    <tr>
+                      <th className="p-4 pl-6">Contrato Mestre (Fornecedor)</th>
+                      <th className="p-4 text-right">Teto Global (Soma)</th>
+                      <th className="p-4 text-right">Adiantamento Total (Saldo)</th>
+                      <th className="p-4 text-right text-emerald-700">Total Direto (Inquilino)</th>
+                      <th className="p-4 text-right text-amber-700">Total Indireto (Construtora)</th>
+                      <th className="p-4 text-right text-rose-700">Retenção Acumulada</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {consolidadosFiltrados.length === 0 ? (
+                       <tr><td colSpan="6" className="p-12 text-center text-slate-400">Nenhum fornecedor encontrado.</td></tr>
+                    ) : (
+                      consolidadosFiltrados.map(agg => {
+                        const isExpanded = expandedContratos[agg.baseCode];
+                        const saldoAdiantamentoGlobal = agg.adiantamentoConcedidoGlobal - agg.amortizadoGlobal;
+                        
+                        return (
+                          <React.Fragment key={agg.baseCode}>
+                            {/* NÓ PAI (FORNECEDOR / CONTRATO RAIZ) */}
+                            <tr className={`transition-colors cursor-pointer group ${isExpanded ? 'bg-indigo-50/30' : 'hover:bg-slate-50'}`} onClick={() => toggleContrato(agg.baseCode)}>
+                              <td className="p-4 pl-4 flex items-center gap-2">
+                                <button className={`p-1 rounded-md transition-colors text-slate-600 bg-slate-200 group-hover:bg-indigo-200`}>
+                                  {isExpanded ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}
+                                </button>
+                                <div>
+                                  <span className="font-black text-indigo-900 text-xs block leading-tight">{agg.baseCode}</span>
+                                  <span className="font-bold text-slate-600 text-[10px] truncate max-w-[200px] block mt-0.5">{agg.fornecedor}</span>
+                                </div>
+                              </td>
+                              <td className="p-4 text-right font-black text-slate-900 text-base">{formatMoney(agg.tetoGlobal)}</td>
+                              <td className="p-4 text-right">
+                                {agg.adiantamentoConcedidoGlobal > 0 ? (
+                                  <>
+                                    <span className="font-bold text-slate-800 text-[11px] block">{formatMoney(saldoAdiantamentoGlobal)}</span>
+                                    <span className="text-[8px] text-slate-400 block mt-0.5">CONCEDIDO: {formatMoney(agg.adiantamentoConcedidoGlobal)}</span>
+                                  </>
+                                ) : <span className="text-slate-300 text-[10px]">-</span>}
+                              </td>
+                              <td className="p-4 text-right font-black text-emerald-700">{formatMoney(agg.fatDiretoGlobal)}</td>
+                              <td className="p-4 text-right font-black text-amber-700">{formatMoney(agg.fatIndiretoGlobal)}</td>
+                              <td className="p-4 text-right font-black text-rose-700">{formatMoney(agg.retencaoGlobal)}</td>
+                            </tr>
+
+                            {/* NÓS FILHOS (DISTRIBUIÇÃO POR EAP) */}
+                            {isExpanded && (
+                              <tr className="bg-slate-50/80 border-none">
+                                <td colSpan="6" className="p-0">
+                                  <div className="pl-12 pr-6 py-4 bg-gradient-to-r from-indigo-50/30 to-slate-50/30 border-l-4 border-l-indigo-400 shadow-inner">
+                                    <table className="w-full text-left">
+                                      <thead className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                                        <tr>
+                                          <th className="pb-2 w-1/3">Alocação / Rateio no PMG</th>
+                                          <th className="pb-2 text-right">Fração do Teto</th>
+                                          <th className="pb-2 text-right">Saldo Adiantamento</th>
+                                          <th className="pb-2 text-right text-emerald-600">Fat. Direto</th>
+                                          <th className="pb-2 text-right text-amber-600">Fat. Indireto</th>
+                                          <th className="pb-2 text-right text-rose-600">Retenção Cativa</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100/50">
+                                        {agg.faccoes.map(f => (
+                                          <tr key={f.id} className="hover:bg-white transition-colors">
+                                            <td className="py-3">
+                                              <div className="flex items-center gap-2">
+                                                <CornerDownRight size={12} className="text-slate-300"/>
+                                                <div>
+                                                  <span className="inline-block px-1.5 py-0.5 bg-indigo-100 text-indigo-800 rounded text-[9px] font-black mr-1">{f.codigo_centro_custo}</span>
+                                                  <span className="text-[10px] font-bold text-slate-600">{f.descricao_centro_custo}</span>
+                                                  {f.codigo_contrato !== agg.baseCode && <span className="block text-[8px] text-slate-400 uppercase mt-1">Ref. Fração: {f.codigo_contrato}</span>}
+                                                </div>
+                                              </div>
+                                            </td>
+                                            <td className="py-3 text-right font-black text-slate-700 text-[11px]">{formatMoney(f.tetoAtualizado)}</td>
+                                            <td className="py-3 text-right text-slate-600 text-[11px] font-bold">{f.saldoAdiantamento > 0 ? formatMoney(f.saldoAdiantamento) : '-'}</td>
+                                            <td className="py-3 text-right font-black text-emerald-700 text-[11px]">{formatMoney(f.fatDireto)}</td>
+                                            <td className="py-3 text-right font-black text-amber-700 text-[11px]">{formatMoney(f.fatIndireto)}</td>
+                                            <td className="py-3 text-right font-black text-rose-700 text-[11px]">{formatMoney(f.retencaoAcumulada)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -1147,10 +1304,7 @@ function AbaAlfandega() {
            <div className="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
              {notasFiscais.map(nf => (
                  <div key={nf.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
-                   <div>
-                     <span className="font-black text-slate-800 text-lg">NF {nf.numero_documento}</span>
-                     <p className="text-xs text-slate-500 font-bold">{nf.tipo_documento} • {nf.classificacao_faturamento}</p>
-                   </div>
+                   <div><span className="font-black text-slate-800 text-lg">NF {nf.numero_documento}</span><p className="text-xs text-slate-500 font-bold">{nf.tipo_documento}</p></div>
                    <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase">Valor Bruto</p><p className="text-xl font-black text-slate-900">{formatMoney(nf.valor_bruto)}</p></div>
                  </div>
              ))}
