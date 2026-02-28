@@ -10,8 +10,9 @@ import {
   Building2, HardHat, ShieldCheck, FolderLock, LineChart, LogOut,
   Plus, ArrowRight, Database, ShoppingCart, Ruler, FileText,
   AlertOctagon, CheckSquare, Download, FileSpreadsheet, Pencil, X, ListTree, Search, Menu, History, Trash2, CopyPlus,
-  ChevronRight, ChevronDown, CornerDownRight, PieChart, TrendingUp, TrendingDown, DollarSign, Activity, Wallet, Percent, Users
+  ChevronRight, ChevronDown, CornerDownRight, PieChart, TrendingUp, TrendingDown, DollarSign, Activity, Wallet, Percent, Users, ScanSearch
 } from 'lucide-react';
+
 
 // ============================================================================
 // 1. CONEXÃO COM O MOTOR (SUPABASE) - PRODUÇÃO PURA
@@ -93,6 +94,9 @@ function AbaDashboard() {
   const [expandedCCs, setExpandedCCs] = useState({}); // Controla EAP abertas
   const [expandedContratos, setExpandedContratos] = useState({}); // Controla Fornecedores abertos
 
+  // MODAL RAIO-X FINANCEIRO
+  const [xrayData, setXrayData] = useState(null);
+
   useEffect(() => { loadEmpresas(); }, []);
   useEffect(() => { if (selectedEmpresaId) loadObras(selectedEmpresaId); else { setObras([]); setSelectedObraId(''); } }, [selectedEmpresaId]);
   useEffect(() => { if (selectedObraId) buildDashboard(selectedObraId); else setDashboardData({ orcamentos: [], contratosConsolidados: [], kpis: null }); }, [selectedObraId]);
@@ -103,33 +107,41 @@ function AbaDashboard() {
   async function buildDashboard(obrId) {
     setLoading(true);
     try {
-      // 1. Buscar EAP (Orçamento Base)
       const { data: orcData } = await supabase.from('orcamento_pmg').select('*').eq('obra_id', obrId).order('codigo_centro_custo');
-      
-      // 2. Buscar Contratos e Aditivos
       const { data: contData } = await supabase.from('contratos').select('*, aditivos_contrato(valor_acrescimo)').eq('obra_id', obrId);
       
-      // 3. Buscar NFs com as colunas de Retenção e Faturamento Direto/Indireto
+      // BUSCA ATUALIZADA: Trazemos o tipo_documento para separar a Retenção da Devolução de Retenção
       const { data: nfData } = await supabase.from('documentos_fiscais')
-        .select('valor_bruto, valor_retencao_tecnica, valor_amortizado_adiantamento, classificacao_faturamento, contratos!inner(id, obra_id, orcamento_pmg_id)')
+        .select('valor_bruto, valor_retencao_tecnica, valor_amortizado_adiantamento, classificacao_faturamento, tipo_documento, contratos!inner(id, obra_id, orcamento_pmg_id)')
         .eq('contratos.obra_id', obrId);
 
       if (!orcData) return;
 
-      // Agregação de Notas por Contrato
+      // Agregação de Notas por Contrato (Cálculo Refinado)
       const nfAggByContract = {};
       (nfData || []).forEach(nf => {
         const cId = nf.contratos.id;
         if (!nfAggByContract[cId]) {
-          nfAggByContract[cId] = { fatDireto: 0, fatIndireto: 0, retencaoAcumulada: 0, amortizadoAcumulado: 0, totalIncorrido: 0 };
+          nfAggByContract[cId] = { 
+            fatDireto: 0, fatIndireto: 0, totalIncorrido: 0, 
+            retidoTotal: 0, retencaoDevolvida: 0, amortizadoAcumulado: 0 
+          };
         }
-        const v = Number(nf.valor_bruto);
-        nfAggByContract[cId].totalIncorrido += v;
-        nfAggByContract[cId].retencaoAcumulada += Number(nf.valor_retencao_tecnica || 0);
-        nfAggByContract[cId].amortizadoAcumulado += Number(nf.valor_amortizado_adiantamento || 0);
         
-        if (nf.classificacao_faturamento === 'Indireto') nfAggByContract[cId].fatIndireto += v;
-        else nfAggByContract[cId].fatDireto += v; 
+        const v = Number(nf.valor_bruto);
+        
+        // Se NÃO for devolução, soma no faturamento incorrido e consolida a retenção/amortização normal
+        if (nf.tipo_documento !== 'Liberação Retenção') {
+            nfAggByContract[cId].totalIncorrido += v;
+            if (nf.classificacao_faturamento === 'Indireto') nfAggByContract[cId].fatIndireto += v;
+            else nfAggByContract[cId].fatDireto += v; 
+            
+            nfAggByContract[cId].retidoTotal += Number(nf.valor_retencao_tecnica || 0);
+            nfAggByContract[cId].amortizadoAcumulado += Number(nf.valor_amortizado_adiantamento || 0);
+        } else {
+            // Se FOR devolução, o valor bruto da nota é a retenção que está voltando pro fornecedor
+            nfAggByContract[cId].retencaoDevolvida += v;
+        }
       });
 
       let globalCapex = 0; let globalContratado = 0; let globalIncorrido = 0;
@@ -142,11 +154,13 @@ function AbaDashboard() {
         const contratosDaLinha = (contData || []).filter(c => c.orcamento_pmg_id === orc.id).map(c => {
            const aditivosVal = c.aditivos_contrato?.reduce((acc, a) => acc + Number(a.valor_acrescimo), 0) || 0;
            const tetoAtualizado = Number(c.valor_inicial) + aditivosVal;
-           const agg = nfAggByContract[c.id] || { fatDireto: 0, fatIndireto: 0, retencaoAcumulada: 0, amortizadoAcumulado: 0, totalIncorrido: 0 };
+           const agg = nfAggByContract[c.id] || { fatDireto: 0, fatIndireto: 0, totalIncorrido: 0, retidoTotal: 0, retencaoDevolvida: 0, amortizadoAcumulado: 0 };
+           
            const adiantamentoTotal = Number(c.valor_adiantamento_concedido) || 0;
            const saldoAdiantamento = adiantamentoTotal - agg.amortizadoAcumulado;
+           const saldoRetencao = agg.retidoTotal - agg.retencaoDevolvida;
 
-           return { ...c, tetoAtualizado, ...agg, adiantamentoTotal, saldoAdiantamento };
+           return { ...c, tetoAtualizado, ...agg, adiantamentoTotal, saldoAdiantamento, saldoRetencao };
         });
 
         const contratadoLinha = contratosDaLinha.reduce((acc, c) => acc + c.tetoAtualizado, 0);
@@ -167,39 +181,41 @@ function AbaDashboard() {
          const baseCode = getBaseCode(c.codigo_contrato);
          if (!contratosAgg[baseCode]) {
              contratosAgg[baseCode] = {
-                 baseCode,
-                 fornecedor: c.razao_social,
-                 cnpj: c.cnpj_fornecedor,
-                 tetoGlobal: 0,
-                 fatDiretoGlobal: 0,
-                 fatIndiretoGlobal: 0,
-                 retencaoGlobal: 0,
-                 adiantamentoConcedidoGlobal: 0,
-                 amortizadoGlobal: 0,
+                 baseCode, fornecedor: c.razao_social, cnpj: c.cnpj_fornecedor,
+                 tetoGlobal: 0, fatDiretoGlobal: 0, fatIndiretoGlobal: 0,
+                 retidoGlobal: 0, devolvidoGlobal: 0, saldoRetencaoGlobal: 0,
+                 adiantamentoConcedidoGlobal: 0, amortizadoGlobal: 0, saldoAdiantamentoGlobal: 0,
                  faccoes: [] // rateios e distribuição
              };
          }
          
          const aditivosVal = c.aditivos_contrato?.reduce((acc, a) => acc + Number(a.valor_acrescimo), 0) || 0;
          const tetoAtualizado = Number(c.valor_inicial) + aditivosVal;
-         const agg = nfAggByContract[c.id] || { fatDireto: 0, fatIndireto: 0, retencaoAcumulada: 0, amortizadoAcumulado: 0, totalIncorrido: 0 };
+         const agg = nfAggByContract[c.id] || { fatDireto: 0, fatIndireto: 0, totalIncorrido: 0, retidoTotal: 0, retencaoDevolvida: 0, amortizadoAcumulado: 0 };
          
+         const saldoAdiantamento = (Number(c.valor_adiantamento_concedido) || 0) - agg.amortizadoAcumulado;
+         const saldoRetencao = agg.retidoTotal - agg.retencaoDevolvida;
+
          contratosAgg[baseCode].tetoGlobal += tetoAtualizado;
          contratosAgg[baseCode].fatDiretoGlobal += agg.fatDireto;
          contratosAgg[baseCode].fatIndiretoGlobal += agg.fatIndireto;
-         contratosAgg[baseCode].retencaoGlobal += agg.retencaoAcumulada;
+         
+         contratosAgg[baseCode].retidoGlobal += agg.retidoTotal;
+         contratosAgg[baseCode].devolvidoGlobal += agg.retencaoDevolvida;
+         contratosAgg[baseCode].saldoRetencaoGlobal += saldoRetencao;
+
          contratosAgg[baseCode].adiantamentoConcedidoGlobal += Number(c.valor_adiantamento_concedido) || 0;
          contratosAgg[baseCode].amortizadoGlobal += agg.amortizadoAcumulado;
+         contratosAgg[baseCode].saldoAdiantamentoGlobal += saldoAdiantamento;
 
          const orcamentoCorrespondente = orcData.find(o => o.id === c.orcamento_pmg_id);
 
          contratosAgg[baseCode].faccoes.push({
-             ...c,
-             tetoAtualizado,
-             ...agg,
+             ...c, tetoAtualizado, ...agg,
              codigo_centro_custo: orcamentoCorrespondente?.codigo_centro_custo || 'N/A',
              descricao_centro_custo: orcamentoCorrespondente?.descricao_servico || 'N/A',
-             saldoAdiantamento: (Number(c.valor_adiantamento_concedido) || 0) - agg.amortizadoAcumulado
+             adiantamentoTotal: Number(c.valor_adiantamento_concedido) || 0,
+             saldoAdiantamento, saldoRetencao
          });
       });
 
@@ -239,6 +255,12 @@ function AbaDashboard() {
     return matchBase || matchPMGFacao;
   });
 
+  // Abre Modal do Raio-X
+  const openXRay = (e, item, isAgrupado = false) => {
+    e.stopPropagation();
+    setXrayData({ item, isAgrupado });
+  };
+
   return (
     <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-6 pb-20">
       <header className="mb-4">
@@ -274,6 +296,87 @@ function AbaDashboard() {
         <div className="p-12 flex justify-center"><div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
       ) : dashboardData.kpis && (
         <>
+          {/* MODAL RAIO-X FINANCEIRO */}
+          {xrayData && (
+            <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-900 text-white">
+                  <div>
+                    <h3 className="font-black flex items-center gap-2"><ScanSearch size={18} className="text-emerald-400"/> Raio-X Financeiro (Auditoria)</h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                      Ref: {xrayData.isAgrupado ? xrayData.item.baseCode + ' (Consolidado)' : xrayData.item.codigo_contrato}
+                    </p>
+                  </div>
+                  <button onClick={() => setXrayData(null)} className="text-slate-400 hover:text-white p-2 bg-slate-800 rounded-full"><X size={18}/></button>
+                </div>
+                
+                <div className="p-6 space-y-8 bg-slate-50">
+                  {/* Bloco Adiantamento */}
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                     <h4 className="text-xs font-black text-amber-600 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3 mb-4"><Wallet size={16}/> Extrato de Adiantamento</h4>
+                     
+                     <div className="flex justify-between items-end mb-2">
+                       <div>
+                         <p className="text-[10px] font-black text-slate-400 uppercase">Total Concedido</p>
+                         <p className="text-lg font-black text-slate-800">{formatMoney(xrayData.isAgrupado ? xrayData.item.adiantamentoConcedidoGlobal : xrayData.item.adiantamentoTotal)}</p>
+                       </div>
+                       <div className="text-right">
+                         <p className="text-[10px] font-black text-slate-400 uppercase">Amortizado nas NFs (-)</p>
+                         <p className="text-lg font-black text-slate-500">{formatMoney(xrayData.isAgrupado ? xrayData.item.amortizadoGlobal : xrayData.item.amortizadoAcumulado)}</p>
+                       </div>
+                     </div>
+                     
+                     {/* Barra Visual */}
+                     <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden flex shadow-inner">
+                        {(() => {
+                           const concedido = xrayData.isAgrupado ? xrayData.item.adiantamentoConcedidoGlobal : xrayData.item.adiantamentoTotal;
+                           const amortizado = xrayData.isAgrupado ? xrayData.item.amortizadoGlobal : xrayData.item.amortizadoAcumulado;
+                           const perc = concedido > 0 ? (amortizado / concedido) * 100 : 0;
+                           return <div className="bg-amber-400 h-full transition-all" style={{width: `${Math.min(perc, 100)}%`}}></div>
+                        })()}
+                     </div>
+                     
+                     <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
+                        <p className="text-xs font-bold text-slate-500">Saldo a Amortizar (=)</p>
+                        <p className="text-xl font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-lg border border-amber-100">{formatMoney(xrayData.isAgrupado ? xrayData.item.saldoAdiantamentoGlobal : xrayData.item.saldoAdiantamento)}</p>
+                     </div>
+                  </div>
+
+                  {/* Bloco Retenção */}
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                     <h4 className="text-xs font-black text-rose-600 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3 mb-4"><FolderLock size={16}/> Extrato de Retenção Técnica (Garantia)</h4>
+                     
+                     <div className="flex justify-between items-end mb-2">
+                       <div>
+                         <p className="text-[10px] font-black text-slate-400 uppercase">Total Retido (Cativo)</p>
+                         <p className="text-lg font-black text-slate-800">{formatMoney(xrayData.isAgrupado ? xrayData.item.retidoGlobal : xrayData.item.retidoTotal)}</p>
+                       </div>
+                       <div className="text-right">
+                         <p className="text-[10px] font-black text-slate-400 uppercase">Liberado / Devolvido (-)</p>
+                         <p className="text-lg font-black text-slate-500">{formatMoney(xrayData.isAgrupado ? xrayData.item.devolvidoGlobal : xrayData.item.retencaoDevolvida)}</p>
+                       </div>
+                     </div>
+                     
+                     {/* Barra Visual */}
+                     <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden flex shadow-inner">
+                        {(() => {
+                           const retido = xrayData.isAgrupado ? xrayData.item.retidoGlobal : xrayData.item.retidoTotal;
+                           const devolvido = xrayData.isAgrupado ? xrayData.item.devolvidoGlobal : xrayData.item.retencaoDevolvida;
+                           const perc = retido > 0 ? (devolvido / retido) * 100 : 0;
+                           return <div className="bg-rose-400 h-full transition-all" style={{width: `${Math.min(perc, 100)}%`}}></div>
+                        })()}
+                     </div>
+                     
+                     <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
+                        <p className="text-xs font-bold text-slate-500">Saldo Cativo Atual (=)</p>
+                        <p className="text-xl font-black text-rose-600 bg-rose-50 px-3 py-1 rounded-lg border border-rose-100">{formatMoney(xrayData.isAgrupado ? xrayData.item.saldoRetencaoGlobal : xrayData.item.saldoRetencao)}</p>
+                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* CARDS DE KPI */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -403,10 +506,10 @@ function AbaDashboard() {
                                         <tr>
                                           <th className="pb-2 w-1/4">Contrato Parcial (Desta Linha)</th>
                                           <th className="pb-2 text-right">Teto (Base + Adt.)</th>
-                                          <th className="pb-2 text-right">Adiantamento (Saldo)</th>
-                                          <th className="pb-2 text-right text-emerald-600">Fat. Direto (Inquilino)</th>
-                                          <th className="pb-2 text-right text-amber-600">Fat. Indireto (Construtora)</th>
-                                          <th className="pb-2 text-right text-rose-600">Retenção Cativa</th>
+                                          <th className="pb-2 text-right">Saldo Adiantamento</th>
+                                          <th className="pb-2 text-right text-emerald-600">Fat. Direto (Inq.)</th>
+                                          <th className="pb-2 text-right text-amber-600">Fat. Indireto (Const.)</th>
+                                          <th className="pb-2 text-right text-rose-600">Saldo Retenção</th>
                                         </tr>
                                       </thead>
                                       <tbody className="divide-y divide-slate-100/50">
@@ -423,16 +526,19 @@ function AbaDashboard() {
                                             </td>
                                             <td className="py-3 text-right font-black text-slate-700 text-[11px]">{formatMoney(c.tetoAtualizado)}</td>
                                             <td className="py-3 text-right">
-                                              {c.adiantamentoTotal > 0 ? (
-                                                <>
-                                                  <span className="font-bold text-slate-800 text-[11px] block">{formatMoney(c.saldoAdiantamento)}</span>
-                                                  <span className="text-[8px] text-slate-400 block mt-0.5">CONCEDIDO: {formatMoney(c.adiantamentoTotal)}</span>
-                                                </>
-                                              ) : <span className="text-slate-300 text-[10px]">-</span>}
+                                              <button onClick={(e) => openXRay(e, c, false)} className="inline-flex items-center justify-end gap-1 font-bold text-slate-600 text-[11px] hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors group">
+                                                {formatMoney(c.saldoAdiantamento)}
+                                                <ScanSearch size={12} className="opacity-0 group-hover:opacity-100 transition-opacity"/>
+                                              </button>
                                             </td>
                                             <td className="py-3 text-right font-black text-emerald-700 text-[11px]">{formatMoney(c.fatDireto)}</td>
                                             <td className="py-3 text-right font-black text-amber-700 text-[11px]">{formatMoney(c.fatIndireto)}</td>
-                                            <td className="py-3 text-right font-black text-rose-700 text-[11px]">{formatMoney(c.retencaoAcumulada)}</td>
+                                            <td className="py-3 text-right">
+                                              <button onClick={(e) => openXRay(e, c, false)} className="inline-flex items-center justify-end gap-1 font-black text-rose-600 text-[11px] hover:text-blue-600 bg-rose-50 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors group">
+                                                {formatMoney(c.saldoRetencao)}
+                                                <ScanSearch size={12} className="opacity-0 group-hover:opacity-100 transition-opacity"/>
+                                              </button>
+                                            </td>
                                           </tr>
                                         ))}
                                       </tbody>
@@ -458,10 +564,10 @@ function AbaDashboard() {
                     <tr>
                       <th className="p-4 pl-6">Contrato Mestre (Fornecedor)</th>
                       <th className="p-4 text-right">Teto Global (Soma)</th>
-                      <th className="p-4 text-right">Adiantamento Total (Saldo)</th>
-                      <th className="p-4 text-right text-emerald-700">Total Direto (Inquilino)</th>
-                      <th className="p-4 text-right text-amber-700">Total Indireto (Construtora)</th>
-                      <th className="p-4 text-right text-rose-700">Retenção Acumulada</th>
+                      <th className="p-4 text-right">Saldo Adiantamento</th>
+                      <th className="p-4 text-right text-emerald-700">Total Direto (Inq.)</th>
+                      <th className="p-4 text-right text-amber-700">Total Indireto (Const.)</th>
+                      <th className="p-4 text-right text-rose-700">Saldo Retenção</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -470,7 +576,6 @@ function AbaDashboard() {
                     ) : (
                       consolidadosFiltrados.map(agg => {
                         const isExpanded = expandedContratos[agg.baseCode];
-                        const saldoAdiantamentoGlobal = agg.adiantamentoConcedidoGlobal - agg.amortizadoGlobal;
                         
                         return (
                           <React.Fragment key={agg.baseCode}>
@@ -487,16 +592,19 @@ function AbaDashboard() {
                               </td>
                               <td className="p-4 text-right font-black text-slate-900 text-base">{formatMoney(agg.tetoGlobal)}</td>
                               <td className="p-4 text-right">
-                                {agg.adiantamentoConcedidoGlobal > 0 ? (
-                                  <>
-                                    <span className="font-bold text-slate-800 text-[11px] block">{formatMoney(saldoAdiantamentoGlobal)}</span>
-                                    <span className="text-[8px] text-slate-400 block mt-0.5">CONCEDIDO: {formatMoney(agg.adiantamentoConcedidoGlobal)}</span>
-                                  </>
-                                ) : <span className="text-slate-300 text-[10px]">-</span>}
+                                <button onClick={(e) => openXRay(e, agg, true)} className="inline-flex items-center justify-end gap-1 font-bold text-slate-600 text-xs hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition-colors group">
+                                  {formatMoney(agg.saldoAdiantamentoGlobal)}
+                                  <ScanSearch size={14} className="opacity-0 group-hover:opacity-100 transition-opacity"/>
+                                </button>
                               </td>
                               <td className="p-4 text-right font-black text-emerald-700">{formatMoney(agg.fatDiretoGlobal)}</td>
                               <td className="p-4 text-right font-black text-amber-700">{formatMoney(agg.fatIndiretoGlobal)}</td>
-                              <td className="p-4 text-right font-black text-rose-700">{formatMoney(agg.retencaoGlobal)}</td>
+                              <td className="p-4 text-right">
+                                <button onClick={(e) => openXRay(e, agg, true)} className="inline-flex items-center justify-end gap-1 font-black text-rose-600 text-xs hover:text-blue-600 bg-rose-50 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition-colors group">
+                                  {formatMoney(agg.saldoRetencaoGlobal)}
+                                  <ScanSearch size={14} className="opacity-0 group-hover:opacity-100 transition-opacity"/>
+                                </button>
+                              </td>
                             </tr>
 
                             {/* NÓS FILHOS (DISTRIBUIÇÃO POR EAP) */}
@@ -512,7 +620,7 @@ function AbaDashboard() {
                                           <th className="pb-2 text-right">Saldo Adiantamento</th>
                                           <th className="pb-2 text-right text-emerald-600">Fat. Direto</th>
                                           <th className="pb-2 text-right text-amber-600">Fat. Indireto</th>
-                                          <th className="pb-2 text-right text-rose-600">Retenção Cativa</th>
+                                          <th className="pb-2 text-right text-rose-600">Saldo Retenção</th>
                                         </tr>
                                       </thead>
                                       <tbody className="divide-y divide-slate-100/50">
@@ -529,10 +637,20 @@ function AbaDashboard() {
                                               </div>
                                             </td>
                                             <td className="py-3 text-right font-black text-slate-700 text-[11px]">{formatMoney(f.tetoAtualizado)}</td>
-                                            <td className="py-3 text-right text-slate-600 text-[11px] font-bold">{f.saldoAdiantamento > 0 ? formatMoney(f.saldoAdiantamento) : '-'}</td>
+                                            <td className="py-3 text-right">
+                                              <button onClick={(e) => openXRay(e, f, false)} className="inline-flex items-center justify-end gap-1 font-bold text-slate-500 text-[11px] hover:text-blue-600 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors group">
+                                                {formatMoney(f.saldoAdiantamento)}
+                                                <ScanSearch size={10} className="opacity-0 group-hover:opacity-100 transition-opacity"/>
+                                              </button>
+                                            </td>
                                             <td className="py-3 text-right font-black text-emerald-700 text-[11px]">{formatMoney(f.fatDireto)}</td>
                                             <td className="py-3 text-right font-black text-amber-700 text-[11px]">{formatMoney(f.fatIndireto)}</td>
-                                            <td className="py-3 text-right font-black text-rose-700 text-[11px]">{formatMoney(f.retencaoAcumulada)}</td>
+                                            <td className="py-3 text-right">
+                                              <button onClick={(e) => openXRay(e, f, false)} className="inline-flex items-center justify-end gap-1 font-bold text-rose-600 text-[11px] hover:text-blue-600 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors group">
+                                                {formatMoney(f.saldoRetencao)}
+                                                <ScanSearch size={10} className="opacity-0 group-hover:opacity-100 transition-opacity"/>
+                                              </button>
+                                            </td>
                                           </tr>
                                         ))}
                                       </tbody>
@@ -1272,12 +1390,19 @@ function AbaAlfandega() {
       <div className={`grid grid-cols-1 lg:grid-cols-2 gap-8 ${!selectedContratoId ? 'opacity-30 pointer-events-none blur-sm' : ''}`}>
         <div className="bg-white p-6 rounded-2xl shadow-xl border-t-4 border-t-rose-600 border-x border-b border-slate-200">
           <form onSubmit={handleSubmitNF} className="space-y-4">
-            <div className="flex gap-2 mb-4">{['Serviço', 'Material'].map(tipo => (<button key={tipo} type="button" onClick={() => setTipoDocumento(tipo)} className={`flex-1 py-2 text-xs font-bold rounded-lg border ${tipoDocumento === tipo ? 'bg-rose-600 text-white' : 'bg-white'}`}>{tipo}</button>))}</div>
+            <div className="flex gap-2 mb-4">
+              {['Serviço', 'Material', 'Liberação Retenção'].map(tipo => (
+                <button key={tipo} type="button" onClick={() => setTipoDocumento(tipo)} className={`flex-1 py-2 text-xs font-bold rounded-lg border ${tipoDocumento === tipo ? 'bg-rose-600 text-white' : 'bg-white'}`}>
+                  {tipo}
+                </button>
+              ))}
+            </div>
             
             <div className="grid grid-cols-2 gap-3">
               {tipoDocumento === 'Serviço' && (<select required className="w-full p-2.5 border rounded-lg text-sm" value={formNF.medicao_id} onChange={e => setFormNF({...formNF, medicao_id: e.target.value})}><option value="">Selecione a Medição</option>{medicoes.map(m => <option key={m.id} value={m.id}>{m.codigo_medicao} (Teto: {formatMoney(m.valor_bruto_medido)})</option>)}</select>)}
               {tipoDocumento === 'Material' && (<select required className="w-full p-2.5 border rounded-lg text-sm" value={formNF.pedido_id} onChange={e => setFormNF({...formNF, pedido_id: e.target.value})}><option value="">Selecione o Pedido</option>{pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido} (Teto: {formatMoney(p.valor_total_aprovado)})</option>)}</select>)}
-              
+              {tipoDocumento === 'Liberação Retenção' && (<div className="p-2.5 border border-dashed border-rose-200 bg-rose-50 text-rose-700 text-xs font-bold rounded-lg flex items-center justify-center">Doc. Financeiro de Devolução</div>)}
+
               <select required className="w-full p-2.5 border border-indigo-200 bg-indigo-50 text-indigo-900 font-bold rounded-lg text-sm" value={formNF.classificacao_faturamento} onChange={e => setFormNF({...formNF, classificacao_faturamento: e.target.value})}>
                  <option value="Direto">Fat. Direto (Inquilino)</option>
                  <option value="Indireto">Fat. Indireto (Construtora)</option>
@@ -1285,16 +1410,18 @@ function AbaAlfandega() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <input required placeholder="Nº Fatura" className="w-full p-2.5 border rounded-lg text-sm" value={formNF.numero_documento} onChange={e => setFormNF({...formNF, numero_documento: e.target.value})} />
-              <CurrencyInput required placeholder="Valor Bruto (R$)" className="w-full p-2.5 border rounded-lg text-sm font-black text-rose-900 bg-rose-50" value={formNF.valor_bruto} onChange={val => setFormNF({...formNF, valor_bruto: val})} />
+              <input required placeholder={tipoDocumento === 'Liberação Retenção' ? "Nº do Recibo/NF" : "Nº Fatura"} className="w-full p-2.5 border rounded-lg text-sm" value={formNF.numero_documento} onChange={e => setFormNF({...formNF, numero_documento: e.target.value})} />
+              <CurrencyInput required placeholder={tipoDocumento === 'Liberação Retenção' ? "Valor a Devolver (R$)" : "Valor Bruto (R$)"} className="w-full p-2.5 border rounded-lg text-sm font-black text-rose-900 bg-rose-50" value={formNF.valor_bruto} onChange={val => setFormNF({...formNF, valor_bruto: val})} />
             </div>
             <div className="grid grid-cols-2 gap-3"><input required type="date" className="w-full p-2.5 border rounded-lg text-sm" value={formNF.data_emissao} onChange={e => setFormNF({...formNF, data_emissao: e.target.value})} /><input required type="date" className="w-full p-2.5 border rounded-lg text-sm" value={formNF.data_vencimento} onChange={e => setFormNF({...formNF, data_vencimento: e.target.value})} /></div>
             
-            <div className="border-t border-slate-100 pt-4 mt-4 grid grid-cols-3 gap-3">
-              <div><label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Impostos</label><CurrencyInput placeholder="R$ 0,00" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formNF.impostos_destacados} onChange={val => setFormNF({...formNF, impostos_destacados: val})} /></div>
-              <div><label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Retenção</label><CurrencyInput placeholder="R$ 0,00" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formNF.valor_retencao_tecnica} onChange={val => setFormNF({...formNF, valor_retencao_tecnica: val})} /></div>
-              <div><label className="text-[9px] font-bold text-amber-600 uppercase ml-1">Amortiza?</label><CurrencyInput placeholder="R$ 0,00" className="w-full p-2.5 border border-amber-200 bg-amber-50 rounded-lg text-sm font-bold text-amber-800" value={formNF.valor_amortizado_adiantamento} onChange={val => setFormNF({...formNF, valor_amortizado_adiantamento: val})} /></div>
-            </div>
+            {tipoDocumento !== 'Liberação Retenção' && (
+              <div className="border-t border-slate-100 pt-4 mt-4 grid grid-cols-3 gap-3">
+                <div><label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Impostos</label><CurrencyInput placeholder="R$ 0,00" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formNF.impostos_destacados} onChange={val => setFormNF({...formNF, impostos_destacados: val})} /></div>
+                <div><label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Reter Agora</label><CurrencyInput placeholder="R$ 0,00" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm text-rose-700 font-bold" value={formNF.valor_retencao_tecnica} onChange={val => setFormNF({...formNF, valor_retencao_tecnica: val})} /></div>
+                <div><label className="text-[9px] font-bold text-amber-600 uppercase ml-1">Amortiza?</label><CurrencyInput placeholder="R$ 0,00" className="w-full p-2.5 border border-amber-200 bg-amber-50 rounded-lg text-sm font-bold text-amber-800" value={formNF.valor_amortizado_adiantamento} onChange={val => setFormNF({...formNF, valor_amortizado_adiantamento: val})} /></div>
+              </div>
+            )}
 
             <button type="submit" className="w-full bg-slate-900 text-white p-4 rounded-xl text-sm font-black hover:bg-rose-700 mt-6 flex justify-center items-center gap-2"><ShieldCheck size={18}/> Submeter à Alfândega</button>
           </form>
@@ -1303,9 +1430,12 @@ function AbaAlfandega() {
            <h3 className="font-black text-slate-800 text-lg mb-6 flex items-center gap-2"><Database size={20} className="text-slate-400"/> Histórico de Retenção</h3>
            <div className="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
              {notasFiscais.map(nf => (
-                 <div key={nf.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
-                   <div><span className="font-black text-slate-800 text-lg">NF {nf.numero_documento}</span><p className="text-xs text-slate-500 font-bold">{nf.tipo_documento}</p></div>
-                   <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase">Valor Bruto</p><p className="text-xl font-black text-slate-900">{formatMoney(nf.valor_bruto)}</p></div>
+                 <div key={nf.id} className={`p-4 border rounded-xl flex justify-between items-center ${nf.tipo_documento === 'Liberação Retenção' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+                   <div>
+                     <span className="font-black text-slate-800 text-lg">NF {nf.numero_documento}</span>
+                     <p className={`text-xs font-bold ${nf.tipo_documento === 'Liberação Retenção' ? 'text-emerald-700' : 'text-slate-500'}`}>{nf.tipo_documento} • {nf.classificacao_faturamento}</p>
+                   </div>
+                   <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase">{nf.tipo_documento === 'Liberação Retenção' ? 'Valor Devolvido' : 'Valor Bruto'}</p><p className={`text-xl font-black ${nf.tipo_documento === 'Liberação Retenção' ? 'text-emerald-700' : 'text-slate-900'}`}>{formatMoney(nf.valor_bruto)}</p></div>
                  </div>
              ))}
            </div>
@@ -1354,8 +1484,13 @@ function AbaLotes() {
     if (!lote.documentos_fiscais) return;
     const dadosExcel = lote.documentos_fiscais.map(nf => {
       const bruto = Number(nf.valor_bruto || 0); const impostos = Number(nf.impostos_destacados || 0); const retencao = Number(nf.valor_retencao_tecnica || 0); const adiantamento = Number(nf.valor_amortizado_adiantamento || 0); const juros = Number(nf.juros_multas || 0);
+      
+      // Se for devolução de retenção, não deduz o imposto novamente
+      let liquido = bruto - impostos - retencao - adiantamento + juros;
+      if(nf.tipo_documento === 'Liberação Retenção') liquido = bruto; // A devolução é o valor limpo
+
       return {
-        'Nº ROMANEIO': lote.codigo_lote, 'DATA FECHAMENTO': formatDate(lote.data_geracao), 'RAZÃO SOCIAL FORNECEDOR': nf.contratos?.razao_social, 'CNPJ': nf.contratos?.cnpj_fornecedor, 'Nº NOTA FISCAL': nf.numero_documento, 'TIPO': nf.tipo_documento, 'CENTRO DE CUSTO': nf.contratos?.centro_custo_raiz, 'EMISSÃO': formatDate(nf.data_emissao), 'VENCIMENTO': formatDate(nf.data_vencimento), 'VALOR BRUTO (R$)': bruto, 'VALOR DE IMPOSTOS': impostos, 'VALOR DE RETENÇÃO': retencao, 'DESCONTO ADIANTAMENTO/SINAL': adiantamento, 'VALOR DE JUROS E MULTAS': juros, 'LÍQUIDO A PAGAR (R$)': bruto - impostos - retencao - adiantamento + juros, 'FORMA DE PAGAMENTO': '' 
+        'Nº ROMANEIO': lote.codigo_lote, 'DATA FECHAMENTO': formatDate(lote.data_geracao), 'RAZÃO SOCIAL FORNECEDOR': nf.contratos?.razao_social, 'CNPJ': nf.contratos?.cnpj_fornecedor, 'Nº NOTA FISCAL': nf.numero_documento, 'TIPO': nf.tipo_documento, 'CENTRO DE CUSTO': nf.contratos?.centro_custo_raiz, 'EMISSÃO': formatDate(nf.data_emissao), 'VENCIMENTO': formatDate(nf.data_vencimento), 'VALOR BRUTO/RETIDO (R$)': bruto, 'VALOR DE IMPOSTOS': impostos, 'VALOR DE RETENÇÃO': retencao, 'DESCONTO ADIANTAMENTO/SINAL': adiantamento, 'VALOR DE JUROS E MULTAS': juros, 'LÍQUIDO A PAGAR (R$)': liquido, 'FORMA DE PAGAMENTO': '' 
       };
     });
     const worksheet = XLSX.utils.json_to_sheet(dadosExcel); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, worksheet, "Romaneio"); XLSX.writeFile(workbook, `${lote.codigo_lote}_Exportacao.xlsx`);
@@ -1373,8 +1508,8 @@ function AbaLotes() {
       <div className={`transition-all duration-500 ${!selectedObraId ? 'opacity-30 pointer-events-none blur-sm' : ''}`}>
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden mb-8">
            <div className="p-6 bg-slate-900 text-white flex justify-between items-center"><h3 className="font-black text-lg flex items-center gap-2"><CheckSquare size={20}/> Notas Pendentes</h3></div>
-           <table className="w-full text-sm text-left"><thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-black uppercase text-[10px]"><tr><th className="p-4 w-12">SEL</th><th className="p-4">Fornecedor</th><th className="p-4">Documento</th><th className="p-4 text-right">Valor Bruto (R$)</th></tr></thead>
-             <tbody className="divide-y divide-slate-100">{notasPendentes.map(n => (<tr key={n.id} onClick={() => toggleNota(n.id)} className={`cursor-pointer ${selecionadas.includes(n.id) ? 'bg-blue-50' : 'hover:bg-slate-50'}`}><td className="p-4"><input type="checkbox" checked={selecionadas.includes(n.id)} readOnly className="w-5 h-5"/></td><td className="p-4 font-black">{n.contratos.razao_social}</td><td className="p-4">NF {n.numero_documento}</td><td className="p-4 text-right font-black">{formatMoney(n.valor_bruto)}</td></tr>))}</tbody>
+           <table className="w-full text-sm text-left"><thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-black uppercase text-[10px]"><tr><th className="p-4 w-12">SEL</th><th className="p-4">Fornecedor</th><th className="p-4">Documento</th><th className="p-4 text-right">Valor Bruto / Devolvido (R$)</th></tr></thead>
+             <tbody className="divide-y divide-slate-100">{notasPendentes.map(n => (<tr key={n.id} onClick={() => toggleNota(n.id)} className={`cursor-pointer ${selecionadas.includes(n.id) ? 'bg-blue-50' : 'hover:bg-slate-50'}`}><td className="p-4"><input type="checkbox" checked={selecionadas.includes(n.id)} readOnly className="w-5 h-5"/></td><td className="p-4 font-black">{n.contratos.razao_social}</td><td className="p-4">NF {n.numero_documento} <span className="block text-[9px] text-slate-400">{n.tipo_documento}</span></td><td className="p-4 text-right font-black">{formatMoney(n.valor_bruto)}</td></tr>))}</tbody>
            </table>
            <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
               <div><p className="text-xs font-black uppercase text-slate-400">Soma</p><p className="text-3xl font-black text-blue-600">{formatMoney(valorTotalSelecionado)}</p></div>
