@@ -1470,10 +1470,10 @@ function AbaAlfandega() {
         </div>
       </div>
 
-      <div className={`grid grid-cols-1 xl:grid-cols-12 gap-8 ${!selectedContratoId ? 'opacity-30 pointer-events-none blur-sm' : ''} transition-all duration-500`}>
+      <div className={`flex flex-col gap-8 ${!selectedContratoId ? 'opacity-30 pointer-events-none blur-sm' : ''} transition-all duration-500`}>
         
-        {/* LADO ESQUERDO: FORMULÁRIO DE ENTRADA */}
-        <div className="xl:col-span-5 bg-white p-6 rounded-3xl shadow-xl border-t-4 border-t-rose-600 border-x border-b border-slate-200">
+        {/* LADO SUPERIOR: FORMULÁRIO DE ENTRADA PANORÂMICO */}
+        <div className="w-full bg-white p-6 rounded-3xl shadow-xl border-t-4 border-t-rose-600 border-x border-b border-slate-200">
           <form onSubmit={handleSubmitNF} className="space-y-5 h-full flex flex-col relative">
             
             {isEditingNF && (
@@ -1486,71 +1486,68 @@ function AbaAlfandega() {
               <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-2">Natureza do Documento</label>
               <div className="flex flex-wrap gap-2 mb-2">
                 {['Serviço', 'Material', 'Liberação Retenção', 'Nota de Débito', 'DACTE', 'Fatura'].map(tipo => (
-                  <button key={tipo} type="button" disabled={isEditingNF} onClick={() => setTipoDocumento(tipo)} className={`px-3 py-2 text-[10px] font-bold rounded-lg border flex-1 whitespace-nowrap transition-colors ${tipoDocumento === tipo ? 'bg-rose-600 text-white border-rose-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 disabled:opacity-50'}`}>
+                  <button key={tipo} type="button" disabled={isEditingNF} onClick={() => setTipoDocumento(tipo)} className={`px-4 py-2.5 text-[11px] font-bold rounded-xl border transition-colors ${tipoDocumento === tipo ? 'bg-rose-600 text-white border-rose-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 disabled:opacity-50'}`}>
                     {tipo}
                   </button>
                 ))}
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="md:col-span-1 lg:col-span-2">
                 <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Vínculo de Engenharia</label>
-                {tipoDocumento === 'Serviço' && (<select required className="w-full p-2.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 outline-none" value={formNF.medicao_id} onChange={e => setFormNF({...formNF, medicao_id: e.target.value})}><option value="">Selecione a Medição</option>{medicoes.map(m => <option key={m.id} value={m.id}>{m.codigo_medicao} (Teto: {formatMoney(m.valor_bruto_medido)})</option>)}</select>)}
-                {tipoDocumento === 'Material' && (<select required className="w-full p-2.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 outline-none" value={formNF.pedido_id} onChange={e => setFormNF({...formNF, pedido_id: e.target.value})}><option value="">Selecione o Pedido</option>{pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido} (Teto: {formatMoney(p.valor_total_aprovado)})</option>)}</select>)}
+                {tipoDocumento === 'Serviço' && (<select required className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 outline-none" value={formNF.medicao_id} onChange={e => setFormNF({...formNF, medicao_id: e.target.value})}><option value="">Selecione a Medição</option>{medicoes.map(m => <option key={m.id} value={m.id}>{m.codigo_medicao} (Teto: {formatMoney(m.valor_bruto_medido)})</option>)}</select>)}
+                {tipoDocumento === 'Material' && (<select required className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 outline-none" value={formNF.pedido_id} onChange={e => setFormNF({...formNF, pedido_id: e.target.value})}><option value="">Selecione o Pedido</option>{pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido} (Teto: {formatMoney(p.valor_total_aprovado)})</option>)}</select>)}
                 {['Liberação Retenção', 'Nota de Débito', 'DACTE', 'Fatura'].includes(tipoDocumento) && (
-                  <div className="p-2.5 border border-dashed border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-black rounded-lg flex items-center justify-center uppercase tracking-wider h-[42px]">Doc. Independente</div>
+                  <div className="p-2.5 border border-dashed border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-black rounded-lg flex items-center justify-center uppercase tracking-wider h-[42px]">Documento Independente</div>
                 )}
               </div>
+              
               <div>
                 <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Alocação Fiscal</label>
-                <select required className="w-full p-2.5 border border-indigo-200 bg-indigo-50 text-indigo-900 font-bold rounded-lg text-xs outline-none" value={formNF.classificacao_faturamento} onChange={e => setFormNF({...formNF, classificacao_faturamento: e.target.value})}>
+                <select required className="w-full p-2.5 border border-indigo-200 bg-indigo-50 text-indigo-900 font-bold rounded-lg text-sm outline-none" value={formNF.classificacao_faturamento} onChange={e => setFormNF({...formNF, classificacao_faturamento: e.target.value})}>
                    <option value="Direto">Fat. Direto (Inquilino)</option>
                    <option value="Indireto">Fat. Indireto (Construtora)</option>
                 </select>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Nº do Documento</label>
                 <input required placeholder={tipoDocumento === 'Liberação Retenção' ? "Recibo/NF" : "Ex: 12345"} className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-800 outline-none focus:border-rose-400" value={formNF.numero_documento} onChange={e => setFormNF({...formNF, numero_documento: e.target.value})} />
               </div>
-              <div>
-                <label className="text-[10px] font-black text-rose-600 uppercase ml-1 block mb-1">{tipoDocumento === 'Liberação Retenção' ? 'Valor a Devolver' : 'Valor Bruto Total'}</label>
-                <CurrencyInput required placeholder="R$ 0,00" className="w-full p-2.5 border border-rose-300 rounded-lg text-sm font-black text-rose-900 bg-rose-50 outline-none focus:ring-2 focus:ring-rose-500" value={formNF.valor_bruto} onChange={val => setFormNF({...formNF, valor_bruto: val})} />
-              </div>
+
+              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data Emissão</label><input required type="date" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-600 outline-none focus:border-rose-400" value={formNF.data_emissao} onChange={e => setFormNF({...formNF, data_emissao: e.target.value})} /></div>
+              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data Vencimento</label><input required type="date" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-600 outline-none focus:border-rose-400" value={formNF.data_vencimento} onChange={e => setFormNF({...formNF, data_vencimento: e.target.value})} /></div>
+              
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data Emissão</label><input required type="date" className="w-full p-2.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-600 outline-none focus:border-rose-400" value={formNF.data_emissao} onChange={e => setFormNF({...formNF, data_emissao: e.target.value})} /></div>
-              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data Vencimento</label><input required type="date" className="w-full p-2.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-600 outline-none focus:border-rose-400" value={formNF.data_vencimento} onChange={e => setFormNF({...formNF, data_vencimento: e.target.value})} /></div>
+            <div className="grid grid-cols-1 lg:grid-cols-6 gap-4 items-end">
+                <div className="lg:col-span-2">
+                    <label className="text-[10px] font-black text-rose-600 uppercase ml-1 block mb-1">{tipoDocumento === 'Liberação Retenção' ? 'Valor a Devolver' : 'Valor Bruto Total'}</label>
+                    <CurrencyInput required placeholder="R$ 0,00" className="w-full p-3 border border-rose-300 rounded-xl text-lg font-black text-rose-900 bg-rose-50 outline-none focus:ring-2 focus:ring-rose-500" value={formNF.valor_bruto} onChange={val => setFormNF({...formNF, valor_bruto: val})} />
+                </div>
+                
+                {tipoDocumento !== 'Liberação Retenção' && (
+                    <div className="lg:col-span-4 border border-slate-100 p-3 rounded-xl bg-slate-50 grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Impostos (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-slate-700 outline-none" value={formNF.impostos_destacados} onChange={val => setFormNF({...formNF, impostos_destacados: val})} /></div>
+                        <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Retenção Cativa (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-rose-700 outline-none" value={formNF.valor_retencao_tecnica} onChange={val => setFormNF({...formNF, valor_retencao_tecnica: val})} /></div>
+                        <div><label className="text-[9px] font-black text-amber-500 uppercase ml-1 block mb-1">Amortiza Adiant. (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-amber-300 bg-amber-50 rounded-md text-xs font-bold text-amber-800 outline-none" value={formNF.valor_amortizado_adiantamento} onChange={val => setFormNF({...formNF, valor_amortizado_adiantamento: val})} /></div>
+                        <div><label className="text-[9px] font-black text-emerald-600 uppercase ml-1 block mb-1">Juros (+)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-emerald-300 bg-emerald-50 rounded-md text-xs font-bold text-emerald-800 outline-none" value={formNF.juros_multas} onChange={val => setFormNF({...formNF, juros_multas: val})} /></div>
+                        <div><label className="text-[9px] font-black text-slate-500 uppercase ml-1 block mb-1">Forma Pagto / Conta</label><input placeholder="Ex: Bradesco" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-slate-700 outline-none" value={formNF.forma_pagamento} onChange={e => setFormNF({...formNF, forma_pagamento: e.target.value})} /></div>
+                    </div>
+                )}
             </div>
-            
-            {tipoDocumento !== 'Liberação Retenção' && (
-              <div className="border border-slate-100 p-4 rounded-xl bg-slate-50 space-y-4">
-                <div className="grid grid-cols-3 gap-3">
-                  <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Impostos (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-slate-700 outline-none" value={formNF.impostos_destacados} onChange={val => setFormNF({...formNF, impostos_destacados: val})} /></div>
-                  <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Retenção Cativa (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-rose-700 outline-none" value={formNF.valor_retencao_tecnica} onChange={val => setFormNF({...formNF, valor_retencao_tecnica: val})} /></div>
-                  <div><label className="text-[9px] font-black text-amber-500 uppercase ml-1 block mb-1">Amortiza Adiant. (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-amber-300 bg-amber-50 rounded-md text-xs font-bold text-amber-800 outline-none" value={formNF.valor_amortizado_adiantamento} onChange={val => setFormNF({...formNF, valor_amortizado_adiantamento: val})} /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
-                  <div><label className="text-[9px] font-black text-emerald-600 uppercase ml-1 block mb-1">Juros / Acréscimos (+)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-emerald-300 bg-emerald-50 rounded-md text-xs font-bold text-emerald-800 outline-none" value={formNF.juros_multas} onChange={val => setFormNF({...formNF, juros_multas: val})} /></div>
-                  <div><label className="text-[9px] font-black text-slate-500 uppercase ml-1 block mb-1">Forma de Pagamento</label><input placeholder="Ex: Bradesco CC 123" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-slate-700 outline-none" value={formNF.forma_pagamento} onChange={e => setFormNF({...formNF, forma_pagamento: e.target.value})} /></div>
-                </div>
-              </div>
-            )}
 
-            <div className="mt-auto pt-4">
-              <button type="submit" className={`w-full text-white p-4 rounded-xl text-sm font-black uppercase tracking-widest transition-colors flex justify-center items-center gap-2 shadow-xl ${isEditingNF ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-900 hover:bg-rose-700'}`}>
+            <div className="mt-2 flex justify-end">
+              <button type="submit" className={`w-full md:w-auto md:px-12 text-white p-4 rounded-xl text-sm font-black uppercase tracking-widest transition-colors flex justify-center items-center gap-2 shadow-xl ${isEditingNF ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-900 hover:bg-rose-700'}`}>
                 {isEditingNF ? <><Pencil size={20}/> Gravar Edição com Auditoria</> : <><ShieldCheck size={20}/> Reter na Alfândega</>}
               </button>
             </div>
           </form>
         </div>
 
-        {/* LADO DIREITO: HISTÓRICO COM BUSCA E RAIO-X E AÇÕES */}
-        <div className="xl:col-span-7 bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col h-full">
+        {/* LADO INFERIOR: HISTÓRICO COM BUSCA E RAIO-X E AÇÕES PANORÂMICO */}
+        <div className="w-full bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col">
            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
              <h3 className="font-black text-slate-800 text-lg flex items-center gap-2"><Database size={20} className="text-blue-500"/> Histórico de Notas Retidas</h3>
              
@@ -1570,23 +1567,35 @@ function AbaAlfandega() {
                  const isEditada = nf.historico_edicoes && nf.historico_edicoes.length > 0;
                  return (
                    <div key={nf.id} className={`p-4 border rounded-2xl flex justify-between items-center transition-colors hover:shadow-md ${['Cancelado', 'Anulado'].includes(nf.status_documento) ? 'bg-rose-50/30 border-rose-100 opacity-60 grayscale' : (nf.status_documento === 'Substituido' ? 'bg-blue-50/30 border-blue-100 opacity-80' : (nf.tipo_documento === 'Liberação Retenção' ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200'))}`}>
-                     <div className="flex-1 min-w-0 pr-4">
-                       <div className="flex items-center gap-2 mb-1">
-                         <span className={`font-black text-base leading-none ${['Cancelado','Anulado'].includes(nf.status_documento) ? 'line-through text-slate-400' : 'text-slate-800'}`}>NF {nf.numero_documento}</span>
-                         {nf.status_documento === 'Anulado' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-800 text-white flex items-center gap-1"><AlertOctagon size={10}/> Anulada (Erro)</span>}
-                         {nf.status_documento === 'Cancelado' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 flex items-center gap-1">Cancelada</span>}
-                         {nf.status_documento === 'Substituido' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Substituída</span>}
-                         {nf.status_documento === 'Ativo' && isEditada && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Editada</span>}
-                         {nf.status_documento === 'Ativo' && <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${nf.status_aprovacao === 'Aprovado' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{nf.status_aprovacao}</span>}
+                     <div className="flex-1 min-w-0 pr-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                       
+                       <div className="w-full sm:w-1/4 shrink-0">
+                         <div className="flex items-center gap-2 mb-1">
+                           <span className={`font-black text-base leading-none ${['Cancelado','Anulado'].includes(nf.status_documento) ? 'line-through text-slate-400' : 'text-slate-800'}`}>NF {nf.numero_documento}</span>
+                           {nf.status_documento === 'Anulado' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-800 text-white flex items-center gap-1"><AlertOctagon size={10}/> Anulada (Erro)</span>}
+                           {nf.status_documento === 'Cancelado' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 flex items-center gap-1">Cancelada</span>}
+                           {nf.status_documento === 'Substituido' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Substituída</span>}
+                           {nf.status_documento === 'Ativo' && isEditada && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Editada</span>}
+                           {nf.status_documento === 'Ativo' && <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${nf.status_aprovacao === 'Aprovado' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{nf.status_aprovacao}</span>}
+                         </div>
+                         <p className={`text-[10px] font-bold ${nf.tipo_documento === 'Liberação Retenção' ? 'text-emerald-600' : 'text-slate-400'}`}>{nf.tipo_documento} • {nf.classificacao_faturamento}</p>
                        </div>
-                       <p className="text-[11px] font-bold text-slate-600 truncate mb-1" title={nf.contratos.razao_social}>{nf.contratos.razao_social}</p>
-                       <p className={`text-[10px] font-bold ${nf.tipo_documento === 'Liberação Retenção' ? 'text-emerald-600' : 'text-slate-400'}`}>{nf.tipo_documento} • {nf.classificacao_faturamento}</p>
+
+                       <div className="flex-1">
+                          <p className="text-xs font-bold text-slate-600 truncate mb-0.5" title={nf.contratos.razao_social}>{nf.contratos.razao_social}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">Ref. Contrato: {nf.contratos.codigo_contrato}</p>
+                       </div>
+
+                       <div className="flex-1 text-left sm:text-right">
+                          <p className="text-[10px] text-slate-400 font-bold mb-0.5">Emissão: {formatDate(nf.data_emissao)}</p>
+                          <p className="text-[10px] text-slate-400 font-bold">Vencimento: {formatDate(nf.data_vencimento)}</p>
+                       </div>
                      </div>
                      
                      <div className="text-right shrink-0 flex items-center gap-3">
                        <div className="mr-2">
                          <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5">{nf.tipo_documento === 'Liberação Retenção' ? 'Devolvido' : 'Bruto'}</p>
-                         <p className={`text-lg font-black ${['Cancelado','Anulado'].includes(nf.status_documento) ? 'text-slate-400' : (nf.tipo_documento === 'Liberação Retenção' ? 'text-emerald-600' : 'text-slate-900')}`}>{formatMoney(nf.valor_bruto)}</p>
+                         <p className={`text-xl font-black ${['Cancelado','Anulado'].includes(nf.status_documento) ? 'text-slate-400' : (nf.tipo_documento === 'Liberação Retenção' ? 'text-emerald-600' : 'text-slate-900')}`}>{formatMoney(nf.valor_bruto)}</p>
                        </div>
                        
                        <button onClick={() => setSelectedNF(nf)} className="p-2.5 bg-white border border-slate-200 text-slate-500 rounded-xl hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-sm" title="Raio-X da Nota">
