@@ -310,12 +310,12 @@ function AbaDashboard() {
                         <div className="space-y-3 sm:space-y-4">
                            <div className="p-3 sm:p-4 bg-slate-50 rounded-xl border border-slate-100">
                               <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase mb-1">Teto Global Aprovado</p>
-                              <p className="text-xl sm:text-2xl font-black text-slate-900">{formatMoney(xrayData.isAgrupado ? xrayData.item.tetoGlobal : xrayData.item.tetoAtualizado)}</p>
+                              <p className="text-xl sm:text-2xl font-black text-slate-900 break-words">{formatMoney(xrayData.isAgrupado ? xrayData.item.tetoGlobal : xrayData.item.tetoAtualizado)}</p>
                               <p className="text-[8px] sm:text-[9px] text-slate-400 mt-1 uppercase font-bold">Base + Aditivos + Rateios</p>
                            </div>
                            <div className="p-3 sm:p-4 bg-blue-50/50 rounded-xl border border-blue-100">
                               <p className="text-[9px] sm:text-[10px] font-black text-blue-500 uppercase mb-1">Avanço Físico (Medido)</p>
-                              <p className="text-lg sm:text-xl font-black text-blue-800">{formatMoney(xrayData.isAgrupado ? xrayData.item.totalMedidoGlobal : xrayData.item.totalMedido)}</p>
+                              <p className="text-lg sm:text-xl font-black text-blue-800 break-words">{formatMoney(xrayData.isAgrupado ? xrayData.item.totalMedidoGlobal : xrayData.item.totalMedido)}</p>
                               <p className="text-[8px] sm:text-[9px] text-blue-400 mt-1 uppercase font-bold">Baseado em Boletins Físicos</p>
                            </div>
                         </div>
@@ -332,7 +332,7 @@ function AbaDashboard() {
                            </div>
                            <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
                              <p className="text-[10px] sm:text-xs font-black uppercase text-slate-800">Total Faturado</p>
-                             <p className="text-lg sm:text-xl font-black text-emerald-600">{formatMoney(xrayData.isAgrupado ? xrayData.item.totalIncorridoGlobal : xrayData.item.totalIncorrido)}</p>
+                             <p className="text-lg sm:text-xl font-black text-emerald-600 break-words">{formatMoney(xrayData.isAgrupado ? xrayData.item.totalIncorridoGlobal : xrayData.item.totalIncorrido)}</p>
                            </div>
                            <div className="mt-2 bg-slate-100 rounded-full h-1.5 overflow-hidden flex shadow-inner">
                               {(() => {
@@ -353,8 +353,8 @@ function AbaDashboard() {
                     <div className="bg-white p-4 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200">
                        <h4 className="text-[10px] sm:text-xs font-black text-amber-600 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3 mb-4"><Wallet size={16}/> Extrato de Adiantamento</h4>
                        <div className="flex justify-between items-end mb-2">
-                         <div><p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase">Total Concedido</p><p className="text-base sm:text-lg font-black text-slate-800">{formatMoney(xrayData.isAgrupado ? xrayData.item.adiantamentoConcedidoGlobal : xrayData.item.adiantamentoTotal)}</p></div>
-                         <div className="text-right"><p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase">Amortizado nas NFs (-)</p><p className="text-base sm:text-lg font-black text-slate-500">{formatMoney(xrayData.isAgrupado ? xrayData.item.amortizadoGlobal : xrayData.item.amortizadoAcumulado)}</p></div>
+                         <div><p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase">Total Concedido</p><p className="text-base sm:text-lg font-black text-slate-800 break-words">{formatMoney(xrayData.isAgrupado ? xrayData.item.adiantamentoConcedidoGlobal : xrayData.item.adiantamentoTotal)}</p></div>
+                         <div className="text-right"><p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase">Amortizado nas NFs (-)</p><p className="text-base sm:text-lg font-black text-slate-500 break-words">{formatMoney(xrayData.isAgrupado ? xrayData.item.amortizadoGlobal : xrayData.item.amortizadoAcumulado)}</p></div>
                        </div>
                        <div className="w-full bg-slate-100 rounded-full h-2.5 sm:h-3 overflow-hidden flex shadow-inner">
                           {(() => {
@@ -364,14 +364,14 @@ function AbaDashboard() {
                              return <div className="bg-amber-400 h-full transition-all" style={{width: `${Math.min(perc, 100)}%`}}></div>
                           })()}
                        </div>
-                       <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center"><p className="text-[10px] sm:text-xs font-bold text-slate-500">Saldo a Amortizar (=)</p><p className="text-lg sm:text-xl font-black text-amber-600 bg-amber-50 px-2 sm:px-3 py-1 rounded-lg border border-amber-100">{formatMoney(xrayData.isAgrupado ? xrayData.item.saldoAdiantamentoGlobal : xrayData.item.saldoAdiantamento)}</p></div>
+                       <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center"><p className="text-[10px] sm:text-xs font-bold text-slate-500">Saldo a Amortizar (=)</p><p className="text-lg sm:text-xl font-black text-amber-600 bg-amber-50 px-2 sm:px-3 py-1 rounded-lg border border-amber-100 break-words">{formatMoney(xrayData.isAgrupado ? xrayData.item.saldoAdiantamentoGlobal : xrayData.item.saldoAdiantamento)}</p></div>
                     </div>
 
                     <div className="bg-white p-4 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200">
                        <h4 className="text-[10px] sm:text-xs font-black text-rose-600 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3 mb-4"><FolderLock size={16}/> Retenção Técnica (Garantia)</h4>
                        <div className="flex justify-between items-end mb-2">
-                         <div><p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase">Total Retido (Cativo)</p><p className="text-base sm:text-lg font-black text-slate-800">{formatMoney(xrayData.isAgrupado ? xrayData.item.retidoGlobal : xrayData.item.retidoTotal)}</p></div>
-                         <div className="text-right"><p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase">Liberado / Devolvido (-)</p><p className="text-base sm:text-lg font-black text-slate-500">{formatMoney(xrayData.isAgrupado ? xrayData.item.devolvidoGlobal : xrayData.item.retencaoDevolvida)}</p></div>
+                         <div><p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase">Total Retido (Cativo)</p><p className="text-base sm:text-lg font-black text-slate-800 break-words">{formatMoney(xrayData.isAgrupado ? xrayData.item.retidoGlobal : xrayData.item.retidoTotal)}</p></div>
+                         <div className="text-right"><p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase">Liberado / Devolvido (-)</p><p className="text-base sm:text-lg font-black text-slate-500 break-words">{formatMoney(xrayData.isAgrupado ? xrayData.item.devolvidoGlobal : xrayData.item.retencaoDevolvida)}</p></div>
                        </div>
                        <div className="w-full bg-slate-100 rounded-full h-2.5 sm:h-3 overflow-hidden flex shadow-inner">
                           {(() => {
@@ -381,7 +381,7 @@ function AbaDashboard() {
                              return <div className="bg-rose-400 h-full transition-all" style={{width: `${Math.min(perc, 100)}%`}}></div>
                           })()}
                        </div>
-                       <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center"><p className="text-[10px] sm:text-xs font-bold text-slate-500">Saldo Cativo Atual (=)</p><p className="text-lg sm:text-xl font-black text-rose-600 bg-rose-50 px-2 sm:px-3 py-1 rounded-lg border border-rose-100">{formatMoney(xrayData.isAgrupado ? xrayData.item.saldoRetencaoGlobal : xrayData.item.saldoRetencao)}</p></div>
+                       <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center"><p className="text-[10px] sm:text-xs font-bold text-slate-500">Saldo Cativo Atual (=)</p><p className="text-lg sm:text-xl font-black text-rose-600 bg-rose-50 px-2 sm:px-3 py-1 rounded-lg border border-rose-100 break-words">{formatMoney(xrayData.isAgrupado ? xrayData.item.saldoRetencaoGlobal : xrayData.item.saldoRetencao)}</p></div>
                     </div>
                   </div>
                 </div>
@@ -389,48 +389,48 @@ function AbaDashboard() {
             </div>
           )}
 
-          {/* 6 CARDS DE KPI DE DIRETORIA RESTRUTURADOS PARA RESPONSIVIDADE */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
-            <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
-              <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-between">Capex Aprovado <Database size={12}/></p>
-              <h4 className="text-lg sm:text-xl font-black text-slate-900 truncate" title={formatMoney(dashboardData.kpis.globalCapex)}>{formatMoney(dashboardData.kpis.globalCapex)}</h4>
+          {/* 6 CARDS DE KPI DE DIRETORIA RESTRUTURADOS PARA RESPONSIVIDADE (SEM TRUNCATE E COLUNAS INTELIGENTES) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4">
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between min-w-0">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center justify-between">Capex Aprovado <Database size={14}/></p>
+              <h4 className="text-xl md:text-2xl font-black text-slate-900 leading-tight break-words">{formatMoney(dashboardData.kpis.globalCapex)}</h4>
             </div>
 
-            <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
-              <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-between">Teto Contratado <FolderLock size={12}/></p>
-              <h4 className="text-lg sm:text-xl font-black text-amber-700 truncate" title={formatMoney(dashboardData.kpis.globalContratado)}>{formatMoney(dashboardData.kpis.globalContratado)}</h4>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between min-w-0">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center justify-between">Teto Contratado <FolderLock size={14}/></p>
+              <h4 className="text-xl md:text-2xl font-black text-amber-700 leading-tight break-words">{formatMoney(dashboardData.kpis.globalContratado)}</h4>
             </div>
 
-            <div className={`p-4 sm:p-5 rounded-2xl shadow-sm border flex flex-col justify-between ${dashboardData.kpis.globalSave >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-              <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1 flex items-center justify-between ${dashboardData.kpis.globalSave >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+            <div className={`p-5 rounded-2xl shadow-sm border flex flex-col justify-between min-w-0 ${dashboardData.kpis.globalSave >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+              <p className={`text-[10px] font-black uppercase tracking-widest mb-2 flex items-center justify-between ${dashboardData.kpis.globalSave >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                 {dashboardData.kpis.globalSave >= 0 ? 'SAVE (Economia)' : 'Estouro Capex'}
-                {dashboardData.kpis.globalSave >= 0 ? <TrendingUp size={12}/> : <TrendingDown size={12}/>}
+                {dashboardData.kpis.globalSave >= 0 ? <TrendingUp size={14}/> : <TrendingDown size={14}/>}
               </p>
-              <h4 className={`text-lg sm:text-xl font-black truncate ${dashboardData.kpis.globalSave >= 0 ? 'text-emerald-700' : 'text-rose-700'}`} title={formatMoney(dashboardData.kpis.globalSave)}>{formatMoney(dashboardData.kpis.globalSave)}</h4>
+              <h4 className={`text-xl md:text-2xl font-black leading-tight break-words ${dashboardData.kpis.globalSave >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{formatMoney(dashboardData.kpis.globalSave)}</h4>
             </div>
 
-            <div className="bg-slate-900 p-4 sm:p-5 rounded-2xl shadow-xl border border-slate-800 text-white relative overflow-hidden flex flex-col justify-between">
-              <div className="absolute -right-2 -bottom-2 opacity-10"><Activity size={60} /></div>
+            <div className="bg-slate-900 p-5 rounded-2xl shadow-xl border border-slate-800 text-white relative overflow-hidden flex flex-col justify-between min-w-0">
+              <div className="absolute -right-2 -bottom-2 opacity-10"><Activity size={64} /></div>
               <div className="relative z-10">
-                <p className="text-[9px] sm:text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1 flex items-center justify-between">Incorrido (NFs) <DollarSign size={12}/></p>
-                <h4 className="text-lg sm:text-xl font-black truncate" title={formatMoney(dashboardData.kpis.globalIncorrido)}>{formatMoney(dashboardData.kpis.globalIncorrido)}</h4>
+                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 flex items-center justify-between">Incorrido (NFs) <DollarSign size={14}/></p>
+                <h4 className="text-xl md:text-2xl font-black leading-tight break-words">{formatMoney(dashboardData.kpis.globalIncorrido)}</h4>
               </div>
             </div>
 
-            <div className="bg-amber-50 p-4 sm:p-5 rounded-2xl shadow-sm border border-amber-200 flex flex-col justify-between">
+            <div className="bg-amber-50 p-5 rounded-2xl shadow-sm border border-amber-200 flex flex-col justify-between min-w-0">
               <div>
-                <p className="text-[9px] sm:text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1 flex items-center justify-between">Saldo Adiantamento <Wallet size={12}/></p>
-                <h4 className="text-lg sm:text-xl font-black text-amber-900 truncate" title={formatMoney(dashboardData.kpis.globalSaldoAdiantamentoTotal)}>{formatMoney(dashboardData.kpis.globalSaldoAdiantamentoTotal)}</h4>
+                <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-2 flex items-center justify-between">Saldo Adiant. <Wallet size={14}/></p>
+                <h4 className="text-xl md:text-2xl font-black text-amber-900 leading-tight break-words">{formatMoney(dashboardData.kpis.globalSaldoAdiantamentoTotal)}</h4>
               </div>
-              <p className="text-[8px] sm:text-[9px] font-bold text-amber-600 uppercase mt-1 tracking-wider">A Amortizar</p>
+              <p className="text-[9px] font-bold text-amber-600 uppercase mt-2 tracking-wider">A Amortizar</p>
             </div>
 
-            <div className="bg-rose-50 p-4 sm:p-5 rounded-2xl shadow-sm border border-rose-200 flex flex-col justify-between">
+            <div className="bg-rose-50 p-5 rounded-2xl shadow-sm border border-rose-200 flex flex-col justify-between min-w-0">
               <div>
-                <p className="text-[9px] sm:text-[10px] font-black text-rose-700 uppercase tracking-widest mb-1 flex items-center justify-between">Retenção Cativa <FolderLock size={12}/></p>
-                <h4 className="text-lg sm:text-xl font-black text-rose-900 truncate" title={formatMoney(dashboardData.kpis.globalSaldoRetencaoTotal)}>{formatMoney(dashboardData.kpis.globalSaldoRetencaoTotal)}</h4>
+                <p className="text-[10px] font-black text-rose-700 uppercase tracking-widest mb-2 flex items-center justify-between">Retenção Cativa <FolderLock size={14}/></p>
+                <h4 className="text-xl md:text-2xl font-black text-rose-900 leading-tight break-words">{formatMoney(dashboardData.kpis.globalSaldoRetencaoTotal)}</h4>
               </div>
-              <p className="text-[8px] sm:text-[9px] font-bold text-rose-600 uppercase mt-1 tracking-wider">Fundo de Garantia</p>
+              <p className="text-[9px] font-bold text-rose-600 uppercase mt-2 tracking-wider">Fundo de Garantia</p>
             </div>
           </div>
 
@@ -1982,7 +1982,9 @@ function AbaLotes() {
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isConnected, setIsConnected] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile default closed
+  
+  // ⚠️ O RETORNO DO BOTÃO: isSidebarOpen = true por defeito nos monitores maiores
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768); 
 
   useEffect(() => {
     async function checkConnection() {
@@ -1992,6 +1994,14 @@ export default function App() {
       } catch (err) { console.warn("Status: Aguardando Banco (Offline)"); }
     }
     checkConnection();
+
+    // Responsive listener
+    const handleResize = () => {
+      if (window.innerWidth <= 768) setIsSidebarOpen(false);
+      else setIsSidebarOpen(true);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   return (
@@ -2002,45 +2012,54 @@ export default function App() {
         <div className="md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40" onClick={() => setIsSidebarOpen(false)} />
       )}
 
-      {/* SIDEBAR RESPONSIVA */}
-      <aside className={`fixed md:relative top-0 left-0 h-full bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-50 shrink-0 transition-transform duration-300 w-64 md:w-20 lg:w-72 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800 bg-slate-950/50 overflow-hidden shrink-0">
-          <div className="flex items-center gap-3 whitespace-nowrap lg:flex md:hidden">
+      {/* SIDEBAR RESPONSIVA (AGORA COM BOTÃO DE RECOLHER NO DESKTOP) */}
+      <aside className={`fixed md:relative top-0 left-0 h-full bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-50 shrink-0 transition-all duration-300 ${isSidebarOpen ? 'w-64 sm:w-72 translate-x-0' : '-translate-x-full md:translate-x-0 md:w-20'}`}>
+        <div className="h-16 sm:h-20 flex items-center justify-between px-6 border-b border-slate-800 bg-slate-950/50 overflow-hidden shrink-0">
+          <div className={`flex items-center gap-3 whitespace-nowrap transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'md:opacity-0 md:hidden'}`}>
             <ShieldCheck className="text-emerald-500 shrink-0" size={28} />
             <div>
               <h1 className="text-xl font-black text-white tracking-wide leading-none uppercase">Crivo<span className="text-emerald-500 lowercase">.app</span></h1>
               <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-1">Gerenciadora PMG</p>
             </div>
           </div>
-          <ShieldCheck className="text-emerald-500 mx-auto shrink-0 hidden md:block lg:hidden" size={24} />
-          {/* Close button for mobile */}
+          
+          {/* ICON REDUZIDO QUANDO A BARRA ESTÁ FECHADA NO DESKTOP */}
+          {!isSidebarOpen && <ShieldCheck className="text-emerald-500 mx-auto shrink-0 hidden md:block" size={24} />}
+          
           <button className="md:hidden text-slate-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}><X size={20}/></button>
         </div>
         
+        {/* BOTÃO MÁGICO DE RECOLHER O MENU (APENAS DESKTOP) */}
+        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="hidden md:flex absolute top-6 -right-3 bg-slate-800 border border-slate-700 text-white p-1.5 rounded-full hover:bg-emerald-500 hover:border-emerald-400 transition-colors z-50 shadow-lg" title={isSidebarOpen ? "Recolher Menu" : "Expandir Menu"}>
+          <Menu size={14} />
+        </button>
+
         <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 overflow-x-hidden custom-scrollbar">
-          <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-4 whitespace-nowrap lg:block md:hidden">Visão Executiva</p>
-          <MenuButton isExpanded={true} id="dashboard" icon={<LineChart size={18} className="shrink-0"/>} label="Dashboard PMG" active={activeTab === 'dashboard'} onClick={() => {setActiveTab('dashboard'); setIsSidebarOpen(false);}} />
+          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-4 whitespace-nowrap">Visão Executiva</p>}
+          <MenuButton isExpanded={isSidebarOpen} id="dashboard" icon={<LineChart size={18} className="shrink-0"/>} label="Dashboard PMG" active={activeTab === 'dashboard'} onClick={() => {setActiveTab('dashboard'); if(window.innerWidth <= 768) setIsSidebarOpen(false);}} />
           
-          <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap lg:block md:hidden">Estrutura</p>
-          <MenuButton isExpanded={true} id="contratos" icon={<Building2 size={18} className="shrink-0"/>} label="EAP & Contratos" active={activeTab === 'contratos'} onClick={() => {setActiveTab('contratos'); setIsSidebarOpen(false);}} />
+          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap">Estrutura</p>}
+          <MenuButton isExpanded={isSidebarOpen} id="contratos" icon={<Building2 size={18} className="shrink-0"/>} label="EAP & Contratos" active={activeTab === 'contratos'} onClick={() => {setActiveTab('contratos'); if(window.innerWidth <= 768) setIsSidebarOpen(false);}} />
           
-          <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap lg:block md:hidden">Operação de Campo</p>
-          <MenuButton isExpanded={true} id="engenharia" icon={<HardHat size={18} className="shrink-0"/>} label="Engenharia (Medições)" active={activeTab === 'engenharia'} onClick={() => {setActiveTab('engenharia'); setIsSidebarOpen(false);}} />
-          <MenuButton isExpanded={true} id="alfandega" icon={<ShieldCheck size={18} className="shrink-0"/>} label="Alfândega (NFs)" active={activeTab === 'alfandega'} onClick={() => {setActiveTab('alfandega'); setIsSidebarOpen(false);}} />
+          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap">Operação de Campo</p>}
+          <MenuButton isExpanded={isSidebarOpen} id="engenharia" icon={<HardHat size={18} className="shrink-0"/>} label="Engenharia (Medições)" active={activeTab === 'engenharia'} onClick={() => {setActiveTab('engenharia'); if(window.innerWidth <= 768) setIsSidebarOpen(false);}} />
+          <MenuButton isExpanded={isSidebarOpen} id="alfandega" icon={<ShieldCheck size={18} className="shrink-0"/>} label="Alfândega (NFs)" active={activeTab === 'alfandega'} onClick={() => {setActiveTab('alfandega'); if(window.innerWidth <= 768) setIsSidebarOpen(false);}} />
           
-          <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap lg:block md:hidden">Fechamento</p>
-          <MenuButton isExpanded={true} id="lotes" icon={<FolderLock size={18} className="shrink-0"/>} label="Lotes de Pagamento" active={activeTab === 'lotes'} onClick={() => {setActiveTab('lotes'); setIsSidebarOpen(false);}} />
+          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap">Fechamento</p>}
+          <MenuButton isExpanded={isSidebarOpen} id="lotes" icon={<FolderLock size={18} className="shrink-0"/>} label="Lotes de Pagamento" active={activeTab === 'lotes'} onClick={() => {setActiveTab('lotes'); if(window.innerWidth <= 768) setIsSidebarOpen(false);}} />
         </nav>
 
         <div className="p-4 border-t border-slate-800 bg-slate-950/30 overflow-hidden shrink-0">
-          <div className={`flex items-center gap-3 px-3 py-3 lg:justify-start md:justify-center rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-all`}>
+          <div className={`flex items-center gap-3 px-3 py-3 ${isSidebarOpen ? 'justify-start' : 'justify-center'} rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-all`}>
             <div className="relative flex h-2 w-2 shrink-0">
               {isConnected && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
               <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
             </div>
-            <div className="text-[10px] uppercase font-black tracking-tighter whitespace-nowrap lg:block md:hidden">
-              <p className={isConnected ? 'text-emerald-400' : 'text-slate-400'}>{isConnected ? 'Motor Online & Blindado' : 'Aguardando Banco'}</p>
-            </div>
+            {isSidebarOpen && (
+              <div className="text-[10px] uppercase font-black tracking-tighter whitespace-nowrap">
+                <p className={isConnected ? 'text-emerald-400' : 'text-slate-400'}>{isConnected ? 'Motor Online & Blindado' : 'Aguardando Banco'}</p>
+              </div>
+            )}
           </div>
         </div>
       </aside>
@@ -2074,10 +2093,10 @@ function MenuButton({ active, icon, label, onClick, isExpanded }) {
     <button 
       onClick={onClick} 
       title={label}
-      className={`w-full flex items-center gap-3 px-4 lg:justify-start md:justify-center py-3 rounded-xl text-[11px] font-black uppercase tracking-tight transition-all duration-300 ${active ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-500 hover:bg-slate-800 hover:text-white border border-transparent'}`}
+      className={`w-full flex items-center gap-3 px-4 ${isExpanded ? 'justify-start' : 'justify-center'} py-3 rounded-xl text-[11px] font-black uppercase tracking-tight transition-all duration-300 ${active ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-500 hover:bg-slate-800 hover:text-white border border-transparent'}`}
     >
       {icon} 
-      <span className="whitespace-nowrap overflow-hidden text-left lg:block md:hidden block">{label}</span>
+      {isExpanded && <span className="whitespace-nowrap overflow-hidden text-left">{label}</span>}
     </button>
   );
 }
