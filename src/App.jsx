@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 // ============================================================================
 // ⚠️ INSTRUÇÕES PARA O GITHUB:
 
-
 // 2. DESCOMENTE ESTAS 2 LINHAS DE PRODUÇÃO:
 import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
@@ -91,7 +90,7 @@ const findBaseCode = (code, allCodes) => {
 };
 
 // ============================================================================
-// ABA 1: DASHBOARD
+// 1. ABA DASHBOARD
 // ============================================================================
 function AbaDashboard() {
   const [empresas, setEmpresas] = useState([]);
@@ -256,24 +255,24 @@ function AbaDashboard() {
   const openXRay = (e, item, isAgrupado = false) => { e.stopPropagation(); setXrayData({ item, isAgrupado }); };
 
   return (
-    <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-6 pb-20">
+    <div className="animate-in fade-in duration-700 w-full max-w-7xl mx-auto space-y-6 pb-20 px-2 sm:px-0">
       <header className="mb-4">
-        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Painel Executivo PMG</h2>
-        <p className="text-slate-500">Controlo de Capex, Comprometimento e Execução Financeira em tempo real.</p>
+        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Painel Executivo PMG</h2>
+        <p className="text-sm sm:text-base text-slate-500">Controlo de Capex, Comprometimento e Execução Financeira em tempo real.</p>
       </header>
 
       {/* FILTROS GLOBAIS DE DIRETORIA */}
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         <div>
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Building2 size={14}/> Empresa Investidora</label>
-          <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500" value={selectedEmpresaId} onChange={e => setSelectedEmpresaId(e.target.value)}>
+          <select className="w-full p-2.5 sm:p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500" value={selectedEmpresaId} onChange={e => setSelectedEmpresaId(e.target.value)}>
             <option value="">-- Filtro Global: Selecionar Investidor --</option>
             {empresas.map(emp => <option key={emp.id} value={emp.id}>{emp.razao_social}</option>)}
           </select>
         </div>
         <div className={`${!selectedEmpresaId ? 'opacity-30 pointer-events-none' : ''} transition-opacity`}>
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2"><HardHat size={14}/> Empreendimento (Obra)</label>
-          <select className="w-full p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm font-black text-blue-900 outline-none focus:ring-2 focus:ring-blue-500 shadow-inner" value={selectedObraId} onChange={e => setSelectedObraId(e.target.value)}>
+          <select className="w-full p-2.5 sm:p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs sm:text-sm font-black text-blue-900 outline-none focus:ring-2 focus:ring-blue-500 shadow-inner" value={selectedObraId} onChange={e => setSelectedObraId(e.target.value)}>
             <option value="">-- Filtro Global: Selecionar Obra --</option>
             {obras.map(o => <option key={o.id} value={o.id}>{o.codigo_obra} - {o.nome_obra}</option>)}
           </select>
@@ -281,10 +280,10 @@ function AbaDashboard() {
       </div>
 
       {!selectedObraId ? (
-        <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 bg-white/50">
-          <PieChart size={48} className="mx-auto mb-4 opacity-20" />
-          <h3 className="text-xl font-black text-slate-600 mb-2">Aguardando Parâmetros</h3>
-          <p className="text-sm font-medium">Selecione uma Empresa e uma Obra no topo para carregar as matrizes de análise.</p>
+        <div className="p-8 sm:p-12 text-center border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 bg-white/50 mx-2 sm:mx-0">
+          <PieChart size={40} className="mx-auto mb-4 opacity-20 sm:w-12 sm:h-12" />
+          <h3 className="text-lg sm:text-xl font-black text-slate-600 mb-2">Aguardando Parâmetros</h3>
+          <p className="text-xs sm:text-sm font-medium">Selecione uma Empresa e uma Obra no topo para carregar as matrizes de análise.</p>
         </div>
       ) : loading ? (
         <div className="p-12 flex justify-center"><div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
@@ -292,48 +291,48 @@ function AbaDashboard() {
         <>
           {/* MODAL RAIO-X FINANCEIRO NO DASHBOARD */}
           {xrayData && (
-            <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-900 text-white shrink-0">
+            <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+              <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[95vh] sm:max-h-[90vh]">
+                <div className="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center bg-slate-900 text-white shrink-0">
                   <div>
-                    <h3 className="font-black flex items-center gap-2"><ScanSearch size={18} className="text-emerald-400"/> Raio-X Financeiro 360º (Auditoria)</h3>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                    <h3 className="font-black flex items-center gap-2 text-sm sm:text-base"><ScanSearch size={18} className="text-emerald-400"/> Raio-X Financeiro 360º (Auditoria)</h3>
+                    <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
                       Ref: {xrayData.isAgrupado ? xrayData.item.baseCode + ' (Consolidado)' : xrayData.item.codigo_contrato} - {xrayData.isAgrupado ? xrayData.item.fornecedor : xrayData.item.razao_social}
                     </p>
                   </div>
-                  <button onClick={() => setXrayData(null)} className="text-slate-400 hover:text-white p-2 bg-slate-800 rounded-full transition-colors"><X size={18}/></button>
+                  <button onClick={() => setXrayData(null)} className="text-slate-400 hover:text-white p-1.5 sm:p-2 bg-slate-800 rounded-full transition-colors"><X size={18}/></button>
                 </div>
                 
-                <div className="p-6 overflow-y-auto bg-slate-50 space-y-6">
-                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                     <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3 mb-4"><LineChart size={16}/> Extrato de Execução e Faturamento</h4>
-                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="space-y-4">
-                           <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                              <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Teto Global Aprovado</p>
-                              <p className="text-2xl font-black text-slate-900">{formatMoney(xrayData.isAgrupado ? xrayData.item.tetoGlobal : xrayData.item.tetoAtualizado)}</p>
-                              <p className="text-[9px] text-slate-400 mt-1 uppercase font-bold">Base + Aditivos + Rateios</p>
+                <div className="p-4 sm:p-6 overflow-y-auto bg-slate-50 space-y-4 sm:space-y-6">
+                  <div className="bg-white p-4 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200">
+                     <h4 className="text-[10px] sm:text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3 mb-4"><LineChart size={16}/> Extrato de Execução e Faturamento</h4>
+                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                        <div className="space-y-3 sm:space-y-4">
+                           <div className="p-3 sm:p-4 bg-slate-50 rounded-xl border border-slate-100">
+                              <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase mb-1">Teto Global Aprovado</p>
+                              <p className="text-xl sm:text-2xl font-black text-slate-900">{formatMoney(xrayData.isAgrupado ? xrayData.item.tetoGlobal : xrayData.item.tetoAtualizado)}</p>
+                              <p className="text-[8px] sm:text-[9px] text-slate-400 mt-1 uppercase font-bold">Base + Aditivos + Rateios</p>
                            </div>
-                           <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100">
-                              <p className="text-[10px] font-black text-blue-500 uppercase mb-1">Avanço Físico (Medido)</p>
-                              <p className="text-xl font-black text-blue-800">{formatMoney(xrayData.isAgrupado ? xrayData.item.totalMedidoGlobal : xrayData.item.totalMedido)}</p>
-                              <p className="text-[9px] text-blue-400 mt-1 uppercase font-bold">Baseado em Boletins Físicos</p>
+                           <div className="p-3 sm:p-4 bg-blue-50/50 rounded-xl border border-blue-100">
+                              <p className="text-[9px] sm:text-[10px] font-black text-blue-500 uppercase mb-1">Avanço Físico (Medido)</p>
+                              <p className="text-lg sm:text-xl font-black text-blue-800">{formatMoney(xrayData.isAgrupado ? xrayData.item.totalMedidoGlobal : xrayData.item.totalMedido)}</p>
+                              <p className="text-[8px] sm:text-[9px] text-blue-400 mt-1 uppercase font-bold">Baseado em Boletins Físicos</p>
                            </div>
                         </div>
 
-                        <div className="md:col-span-2 border-l border-slate-100 pl-6">
-                           <p className="text-[10px] font-black text-slate-400 uppercase mb-3">Detalhe de Notas Fiscais Retidas</p>
+                        <div className="lg:col-span-2 lg:border-l border-slate-100 lg:pl-6 pt-4 lg:pt-0 border-t lg:border-t-0">
+                           <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase mb-3">Detalhe de Notas Fiscais Retidas</p>
                            <div className="space-y-2 mb-4">
-                             <div className="flex justify-between items-center text-sm"><span className="text-slate-600">NFs de Serviço</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfServicoGlobal : xrayData.item.nfServico)}</span></div>
-                             <div className="flex justify-between items-center text-sm"><span className="text-slate-600">NFs de Material</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfMaterialGlobal : xrayData.item.nfMaterial)}</span></div>
-                             <div className="flex justify-between items-center text-sm"><span className="text-slate-600">Notas de Débito</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfDebitoGlobal : xrayData.item.nfDebito)}</span></div>
-                             <div className="flex justify-between items-center text-sm"><span className="text-slate-600">DACTE (Frete)</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfDacteGlobal : xrayData.item.nfDacte)}</span></div>
-                             <div className="flex justify-between items-center text-sm"><span className="text-slate-600">Faturas</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfFaturaGlobal : xrayData.item.nfFatura)}</span></div>
-                             <div className="flex justify-between items-center text-sm"><span className="text-slate-600">Recibos de Adiantamento</span><span className="font-bold text-amber-600">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfAdiantamentoGlobal : xrayData.item.nfAdiantamento)}</span></div>
+                             <div className="flex justify-between items-center text-xs sm:text-sm"><span className="text-slate-600">NFs de Serviço</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfServicoGlobal : xrayData.item.nfServico)}</span></div>
+                             <div className="flex justify-between items-center text-xs sm:text-sm"><span className="text-slate-600">NFs de Material</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfMaterialGlobal : xrayData.item.nfMaterial)}</span></div>
+                             <div className="flex justify-between items-center text-xs sm:text-sm"><span className="text-slate-600">Notas de Débito</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfDebitoGlobal : xrayData.item.nfDebito)}</span></div>
+                             <div className="flex justify-between items-center text-xs sm:text-sm"><span className="text-slate-600">DACTE (Frete)</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfDacteGlobal : xrayData.item.nfDacte)}</span></div>
+                             <div className="flex justify-between items-center text-xs sm:text-sm"><span className="text-slate-600">Faturas</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfFaturaGlobal : xrayData.item.nfFatura)}</span></div>
+                             <div className="flex justify-between items-center text-xs sm:text-sm pt-1 border-t border-slate-100 mt-1"><span className="text-slate-600">Recibos de Adiantamento</span><span className="font-bold text-amber-600">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfAdiantamentoGlobal : xrayData.item.nfAdiantamento)}</span></div>
                            </div>
                            <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
-                             <p className="text-xs font-black uppercase text-slate-800">Total Faturado</p>
-                             <p className="text-xl font-black text-emerald-600">{formatMoney(xrayData.isAgrupado ? xrayData.item.totalIncorridoGlobal : xrayData.item.totalIncorrido)}</p>
+                             <p className="text-[10px] sm:text-xs font-black uppercase text-slate-800">Total Faturado</p>
+                             <p className="text-lg sm:text-xl font-black text-emerald-600">{formatMoney(xrayData.isAgrupado ? xrayData.item.totalIncorridoGlobal : xrayData.item.totalIncorrido)}</p>
                            </div>
                            <div className="mt-2 bg-slate-100 rounded-full h-1.5 overflow-hidden flex shadow-inner">
                               {(() => {
@@ -343,21 +342,21 @@ function AbaDashboard() {
                                  return <div className={`h-full transition-all ${perc > 100 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{width: `${Math.min(perc, 100)}%`}}></div>
                               })()}
                            </div>
-                           <p className="text-[9px] text-right mt-1 font-bold text-slate-400">
+                           <p className="text-[8px] sm:text-[9px] text-right mt-1 font-bold text-slate-400">
                              Saldo a Faturar: {formatMoney((xrayData.isAgrupado ? xrayData.item.tetoGlobal : xrayData.item.tetoAtualizado) - (xrayData.isAgrupado ? xrayData.item.totalIncorridoGlobal : xrayData.item.totalIncorrido))}
                            </p>
                         </div>
                      </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                       <h4 className="text-xs font-black text-amber-600 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3 mb-4"><Wallet size={16}/> Extrato de Adiantamento</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                    <div className="bg-white p-4 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200">
+                       <h4 className="text-[10px] sm:text-xs font-black text-amber-600 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3 mb-4"><Wallet size={16}/> Extrato de Adiantamento</h4>
                        <div className="flex justify-between items-end mb-2">
-                         <div><p className="text-[10px] font-black text-slate-400 uppercase">Total Concedido</p><p className="text-lg font-black text-slate-800">{formatMoney(xrayData.isAgrupado ? xrayData.item.adiantamentoConcedidoGlobal : xrayData.item.adiantamentoTotal)}</p></div>
-                         <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase">Amortizado nas NFs (-)</p><p className="text-lg font-black text-slate-500">{formatMoney(xrayData.isAgrupado ? xrayData.item.amortizadoGlobal : xrayData.item.amortizadoAcumulado)}</p></div>
+                         <div><p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase">Total Concedido</p><p className="text-base sm:text-lg font-black text-slate-800">{formatMoney(xrayData.isAgrupado ? xrayData.item.adiantamentoConcedidoGlobal : xrayData.item.adiantamentoTotal)}</p></div>
+                         <div className="text-right"><p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase">Amortizado nas NFs (-)</p><p className="text-base sm:text-lg font-black text-slate-500">{formatMoney(xrayData.isAgrupado ? xrayData.item.amortizadoGlobal : xrayData.item.amortizadoAcumulado)}</p></div>
                        </div>
-                       <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden flex shadow-inner">
+                       <div className="w-full bg-slate-100 rounded-full h-2.5 sm:h-3 overflow-hidden flex shadow-inner">
                           {(() => {
                              const concedido = xrayData.isAgrupado ? xrayData.item.adiantamentoConcedidoGlobal : xrayData.item.adiantamentoTotal;
                              const amortizado = xrayData.isAgrupado ? xrayData.item.amortizadoGlobal : xrayData.item.amortizadoAcumulado;
@@ -365,16 +364,16 @@ function AbaDashboard() {
                              return <div className="bg-amber-400 h-full transition-all" style={{width: `${Math.min(perc, 100)}%`}}></div>
                           })()}
                        </div>
-                       <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center"><p className="text-xs font-bold text-slate-500">Saldo a Amortizar (=)</p><p className="text-xl font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-lg border border-amber-100">{formatMoney(xrayData.isAgrupado ? xrayData.item.saldoAdiantamentoGlobal : xrayData.item.saldoAdiantamento)}</p></div>
+                       <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center"><p className="text-[10px] sm:text-xs font-bold text-slate-500">Saldo a Amortizar (=)</p><p className="text-lg sm:text-xl font-black text-amber-600 bg-amber-50 px-2 sm:px-3 py-1 rounded-lg border border-amber-100">{formatMoney(xrayData.isAgrupado ? xrayData.item.saldoAdiantamentoGlobal : xrayData.item.saldoAdiantamento)}</p></div>
                     </div>
 
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                       <h4 className="text-xs font-black text-rose-600 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3 mb-4"><FolderLock size={16}/> Retenção Técnica (Garantia)</h4>
+                    <div className="bg-white p-4 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200">
+                       <h4 className="text-[10px] sm:text-xs font-black text-rose-600 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3 mb-4"><FolderLock size={16}/> Retenção Técnica (Garantia)</h4>
                        <div className="flex justify-between items-end mb-2">
-                         <div><p className="text-[10px] font-black text-slate-400 uppercase">Total Retido (Cativo)</p><p className="text-lg font-black text-slate-800">{formatMoney(xrayData.isAgrupado ? xrayData.item.retidoGlobal : xrayData.item.retidoTotal)}</p></div>
-                         <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase">Liberado / Devolvido (-)</p><p className="text-lg font-black text-slate-500">{formatMoney(xrayData.isAgrupado ? xrayData.item.devolvidoGlobal : xrayData.item.retencaoDevolvida)}</p></div>
+                         <div><p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase">Total Retido (Cativo)</p><p className="text-base sm:text-lg font-black text-slate-800">{formatMoney(xrayData.isAgrupado ? xrayData.item.retidoGlobal : xrayData.item.retidoTotal)}</p></div>
+                         <div className="text-right"><p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase">Liberado / Devolvido (-)</p><p className="text-base sm:text-lg font-black text-slate-500">{formatMoney(xrayData.isAgrupado ? xrayData.item.devolvidoGlobal : xrayData.item.retencaoDevolvida)}</p></div>
                        </div>
-                       <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden flex shadow-inner">
+                       <div className="w-full bg-slate-100 rounded-full h-2.5 sm:h-3 overflow-hidden flex shadow-inner">
                           {(() => {
                              const retido = xrayData.isAgrupado ? xrayData.item.retidoGlobal : xrayData.item.retidoTotal;
                              const devolvido = xrayData.isAgrupado ? xrayData.item.devolvidoGlobal : xrayData.item.retencaoDevolvida;
@@ -382,7 +381,7 @@ function AbaDashboard() {
                              return <div className="bg-rose-400 h-full transition-all" style={{width: `${Math.min(perc, 100)}%`}}></div>
                           })()}
                        </div>
-                       <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center"><p className="text-xs font-bold text-slate-500">Saldo Cativo Atual (=)</p><p className="text-xl font-black text-rose-600 bg-rose-50 px-3 py-1 rounded-lg border border-rose-100">{formatMoney(xrayData.isAgrupado ? xrayData.item.saldoRetencaoGlobal : xrayData.item.saldoRetencao)}</p></div>
+                       <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center"><p className="text-[10px] sm:text-xs font-bold text-slate-500">Saldo Cativo Atual (=)</p><p className="text-lg sm:text-xl font-black text-rose-600 bg-rose-50 px-2 sm:px-3 py-1 rounded-lg border border-rose-100">{formatMoney(xrayData.isAgrupado ? xrayData.item.saldoRetencaoGlobal : xrayData.item.saldoRetencao)}</p></div>
                     </div>
                   </div>
                 </div>
@@ -390,55 +389,58 @@ function AbaDashboard() {
             </div>
           )}
 
-          {/* 6 CARDS DE KPI DE DIRETORIA */}
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-between">Capex Aprovado <Database size={12}/></p>
-              <h4 className="text-lg font-black text-slate-900">{formatMoney(dashboardData.kpis.globalCapex)}</h4>
+          {/* 6 CARDS DE KPI DE DIRETORIA RESTRUTURADOS PARA RESPONSIVIDADE */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+            <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
+              <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-between">Capex Aprovado <Database size={12}/></p>
+              <h4 className="text-lg sm:text-xl font-black text-slate-900 truncate" title={formatMoney(dashboardData.kpis.globalCapex)}>{formatMoney(dashboardData.kpis.globalCapex)}</h4>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-between">Teto Contratado <FolderLock size={12}/></p>
-              <h4 className="text-lg font-black text-amber-700">{formatMoney(dashboardData.kpis.globalContratado)}</h4>
+            <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
+              <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-between">Teto Contratado <FolderLock size={12}/></p>
+              <h4 className="text-lg sm:text-xl font-black text-amber-700 truncate" title={formatMoney(dashboardData.kpis.globalContratado)}>{formatMoney(dashboardData.kpis.globalContratado)}</h4>
             </div>
 
-            <div className={`p-5 rounded-2xl shadow-sm border ${dashboardData.kpis.globalSave >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-              <p className={`text-[9px] font-black uppercase tracking-widest mb-1 flex items-center justify-between ${dashboardData.kpis.globalSave >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+            <div className={`p-4 sm:p-5 rounded-2xl shadow-sm border flex flex-col justify-between ${dashboardData.kpis.globalSave >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+              <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1 flex items-center justify-between ${dashboardData.kpis.globalSave >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                 {dashboardData.kpis.globalSave >= 0 ? 'SAVE (Economia)' : 'Estouro Capex'}
                 {dashboardData.kpis.globalSave >= 0 ? <TrendingUp size={12}/> : <TrendingDown size={12}/>}
               </p>
-              <h4 className={`text-lg font-black ${dashboardData.kpis.globalSave >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{formatMoney(dashboardData.kpis.globalSave)}</h4>
+              <h4 className={`text-lg sm:text-xl font-black truncate ${dashboardData.kpis.globalSave >= 0 ? 'text-emerald-700' : 'text-rose-700'}`} title={formatMoney(dashboardData.kpis.globalSave)}>{formatMoney(dashboardData.kpis.globalSave)}</h4>
             </div>
 
-            <div className="bg-slate-900 p-5 rounded-2xl shadow-xl border border-slate-800 text-white relative overflow-hidden">
+            <div className="bg-slate-900 p-4 sm:p-5 rounded-2xl shadow-xl border border-slate-800 text-white relative overflow-hidden flex flex-col justify-between">
               <div className="absolute -right-2 -bottom-2 opacity-10"><Activity size={60} /></div>
               <div className="relative z-10">
-                <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1 flex items-center justify-between">Incorrido (NFs) <DollarSign size={12}/></p>
-                <h4 className="text-lg font-black">{formatMoney(dashboardData.kpis.globalIncorrido)}</h4>
+                <p className="text-[9px] sm:text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1 flex items-center justify-between">Incorrido (NFs) <DollarSign size={12}/></p>
+                <h4 className="text-lg sm:text-xl font-black truncate" title={formatMoney(dashboardData.kpis.globalIncorrido)}>{formatMoney(dashboardData.kpis.globalIncorrido)}</h4>
               </div>
             </div>
 
-            {/* NOVOS KPIs DE TESOURARIA */}
-            <div className="bg-amber-50 p-5 rounded-2xl shadow-sm border border-amber-200">
-              <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest mb-1 flex items-center justify-between">Saldo Adiantamento <Wallet size={12}/></p>
-              <h4 className="text-lg font-black text-amber-900">{formatMoney(dashboardData.kpis.globalSaldoAdiantamentoTotal)}</h4>
-              <p className="text-[8px] font-bold text-amber-600 uppercase mt-0.5 tracking-wider">A Amortizar</p>
+            <div className="bg-amber-50 p-4 sm:p-5 rounded-2xl shadow-sm border border-amber-200 flex flex-col justify-between">
+              <div>
+                <p className="text-[9px] sm:text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1 flex items-center justify-between">Saldo Adiantamento <Wallet size={12}/></p>
+                <h4 className="text-lg sm:text-xl font-black text-amber-900 truncate" title={formatMoney(dashboardData.kpis.globalSaldoAdiantamentoTotal)}>{formatMoney(dashboardData.kpis.globalSaldoAdiantamentoTotal)}</h4>
+              </div>
+              <p className="text-[8px] sm:text-[9px] font-bold text-amber-600 uppercase mt-1 tracking-wider">A Amortizar</p>
             </div>
 
-            <div className="bg-rose-50 p-5 rounded-2xl shadow-sm border border-rose-200">
-              <p className="text-[9px] font-black text-rose-700 uppercase tracking-widest mb-1 flex items-center justify-between">Retenção Cativa <FolderLock size={12}/></p>
-              <h4 className="text-lg font-black text-rose-900">{formatMoney(dashboardData.kpis.globalSaldoRetencaoTotal)}</h4>
-              <p className="text-[8px] font-bold text-rose-600 uppercase mt-0.5 tracking-wider">Fundo de Garantia</p>
+            <div className="bg-rose-50 p-4 sm:p-5 rounded-2xl shadow-sm border border-rose-200 flex flex-col justify-between">
+              <div>
+                <p className="text-[9px] sm:text-[10px] font-black text-rose-700 uppercase tracking-widest mb-1 flex items-center justify-between">Retenção Cativa <FolderLock size={12}/></p>
+                <h4 className="text-lg sm:text-xl font-black text-rose-900 truncate" title={formatMoney(dashboardData.kpis.globalSaldoRetencaoTotal)}>{formatMoney(dashboardData.kpis.globalSaldoRetencaoTotal)}</h4>
+              </div>
+              <p className="text-[8px] sm:text-[9px] font-bold text-rose-600 uppercase mt-1 tracking-wider">Fundo de Garantia</p>
             </div>
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-5 bg-slate-900 flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="flex bg-slate-800 p-1.5 rounded-xl border border-slate-700">
-                <button onClick={() => setViewMode('eap')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${viewMode === 'eap' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><ListTree size={16}/> Matriz EAP (Obra)</button>
-                <button onClick={() => setViewMode('fornecedor')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${viewMode === 'fornecedor' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><Users size={16}/> Consolidado (Fornecedor)</button>
+            <div className="p-4 sm:p-5 bg-slate-900 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+              <div className="flex bg-slate-800 p-1 sm:p-1.5 rounded-xl border border-slate-700 w-full lg:w-auto">
+                <button onClick={() => setViewMode('eap')} className={`flex-1 sm:flex-none flex justify-center items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all ${viewMode === 'eap' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><ListTree size={14} className="sm:w-4 sm:h-4"/> Matriz EAP</button>
+                <button onClick={() => setViewMode('fornecedor')} className={`flex-1 sm:flex-none flex justify-center items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all ${viewMode === 'fornecedor' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><Users size={14} className="sm:w-4 sm:h-4"/> Fornecedor</button>
               </div>
-              <div className="relative w-full sm:w-80">
+              <div className="relative w-full lg:w-80">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search size={14} className="text-slate-400"/></div>
                 <input type="text" placeholder="Buscar na matriz atual..." className="w-full pl-9 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" value={buscaDashboard} onChange={e => setBuscaDashboard(e.target.value)} />
                 {buscaDashboard && <button onClick={() => setBuscaDashboard('')} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"><X size={14}/></button>}
@@ -446,10 +448,10 @@ function AbaDashboard() {
             </div>
             
             {viewMode === 'eap' && (
-              <div className="overflow-x-auto animate-in fade-in">
-                <table className="w-full text-sm text-left border-collapse">
+              <div className="overflow-x-auto animate-in fade-in max-w-full">
+                <table className="w-full text-sm text-left border-collapse min-w-[900px]">
                   <thead className="bg-slate-100 border-b-2 border-slate-200 text-slate-600 font-black uppercase tracking-wider text-[9px]">
-                    <tr><th className="p-4 pl-6">Rubrica PMG (Nó Pai)</th><th className="p-4 text-right">Orçamento (Capex)</th><th className="p-4 text-right">Teto Contratado</th><th className="p-4 w-40 text-center">Consumo (%)</th><th className="p-4 text-right">Save Gerado</th><th className="p-4 text-right">Fat. Incorrido</th></tr>
+                    <tr><th className="p-3 sm:p-4 pl-4 sm:pl-6 whitespace-nowrap">Rubrica PMG (Nó Pai)</th><th className="p-3 sm:p-4 text-right whitespace-nowrap">Orçamento (Capex)</th><th className="p-3 sm:p-4 text-right whitespace-nowrap">Teto Contratado</th><th className="p-3 sm:p-4 w-32 sm:w-40 text-center whitespace-nowrap">Consumo (%)</th><th className="p-3 sm:p-4 text-right whitespace-nowrap">Save Gerado</th><th className="p-3 sm:p-4 text-right whitespace-nowrap">Fat. Incorrido</th></tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {orcamentosFiltrados.length === 0 ? (
@@ -461,51 +463,51 @@ function AbaDashboard() {
                         return (
                           <React.Fragment key={linha.id}>
                             <tr className={`transition-colors cursor-pointer group ${isExpanded ? 'bg-blue-50/50' : 'hover:bg-slate-50'}`} onClick={() => hasContracts && toggleCC(linha.id)}>
-                              <td className="p-4 pl-4 flex items-center gap-2">
+                              <td className="p-3 sm:p-4 pl-3 sm:pl-4 flex items-center gap-2 min-w-[200px]">
                                 <button className={`p-1 rounded-md transition-colors ${hasContracts ? 'text-slate-600 bg-slate-200 group-hover:bg-blue-200' : 'text-transparent cursor-default'}`}>{hasContracts ? (isExpanded ? <ChevronDown size={14}/> : <ChevronRight size={14}/>) : <ChevronRight size={14}/>}</button>
-                                <div><span className="inline-block px-1.5 py-0.5 bg-slate-800 text-white rounded text-[10px] font-black mr-1.5">{linha.codigo_centro_custo}</span><span className="font-bold text-slate-800 text-xs">{linha.descricao_servico}</span></div>
+                                <div><span className="inline-block px-1.5 py-0.5 bg-slate-800 text-white rounded text-[9px] sm:text-[10px] font-black mr-1.5">{linha.codigo_centro_custo}</span><span className="font-bold text-slate-800 text-[11px] sm:text-xs">{linha.descricao_servico}</span></div>
                               </td>
-                              <td className="p-4 text-right font-black text-slate-900">{formatMoney(linha.capex)}</td>
-                              <td className="p-4 text-right font-bold text-amber-700">{formatMoney(linha.contratadoLinha)}</td>
-                              <td className="p-4">
+                              <td className="p-3 sm:p-4 text-right font-black text-slate-900 whitespace-nowrap">{formatMoney(linha.capex)}</td>
+                              <td className="p-3 sm:p-4 text-right font-bold text-amber-700 whitespace-nowrap">{formatMoney(linha.contratadoLinha)}</td>
+                              <td className="p-3 sm:p-4">
                                 <div className="flex items-center gap-2 justify-end">
-                                  <div className="flex-1 bg-slate-200 rounded-full h-2 overflow-hidden max-w-[80px]"><div className={`h-full rounded-full ${linha.percComprometido > 100 ? 'bg-rose-500' : 'bg-blue-500'}`} style={{width: `${Math.min(linha.percComprometido, 100)}%`}}></div></div>
-                                  <span className="text-[10px] font-black text-slate-500 w-8">{linha.percComprometido.toFixed(0)}%</span>
+                                  <div className="flex-1 bg-slate-200 rounded-full h-1.5 sm:h-2 overflow-hidden max-w-[60px] sm:max-w-[80px]"><div className={`h-full rounded-full ${linha.percComprometido > 100 ? 'bg-rose-500' : 'bg-blue-500'}`} style={{width: `${Math.min(linha.percComprometido, 100)}%`}}></div></div>
+                                  <span className="text-[9px] sm:text-[10px] font-black text-slate-500 w-8">{linha.percComprometido.toFixed(0)}%</span>
                                 </div>
                               </td>
-                              <td className={`p-4 text-right font-black ${linha.saveEap >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatMoney(linha.saveEap)}</td>
-                              <td className="p-4 text-right font-black text-blue-700">{formatMoney(linha.incorridoLinha)}</td>
+                              <td className={`p-3 sm:p-4 text-right font-black whitespace-nowrap ${linha.saveEap >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatMoney(linha.saveEap)}</td>
+                              <td className="p-3 sm:p-4 text-right font-black text-blue-700 whitespace-nowrap">{formatMoney(linha.incorridoLinha)}</td>
                             </tr>
                             {isExpanded && hasContracts && (
                               <tr className="bg-slate-50/80 border-none">
                                 <td colSpan="6" className="p-0">
-                                  <div className="pl-12 pr-6 py-4 bg-gradient-to-r from-blue-50/30 to-slate-50/30 border-l-4 border-l-blue-400 shadow-inner">
-                                    <table className="w-full text-left">
-                                      <thead className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
-                                        <tr><th className="pb-2 w-1/4">Contrato Parcial (Desta Linha)</th><th className="pb-2 text-right">Teto (Base + Adt.)</th><th className="pb-2 text-right">Saldo Adiantamento</th><th className="pb-2 text-right text-emerald-600">Fat. Direto (Inq.)</th><th className="pb-2 text-right text-amber-600">Fat. Indireto (Const.)</th><th className="pb-2 text-right text-rose-600">Saldo Retenção</th></tr>
+                                  <div className="pl-6 sm:pl-12 pr-3 sm:pr-6 py-3 sm:py-4 bg-gradient-to-r from-blue-50/30 to-slate-50/30 border-l-2 sm:border-l-4 border-l-blue-400 shadow-inner overflow-x-auto">
+                                    <table className="w-full text-left min-w-[700px]">
+                                      <thead className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                                        <tr><th className="pb-2 w-1/4 whitespace-nowrap">Contrato Parcial (Desta Linha)</th><th className="pb-2 text-right whitespace-nowrap">Teto (Base + Adt.)</th><th className="pb-2 text-right whitespace-nowrap">Saldo Adiantamento</th><th className="pb-2 text-right text-emerald-600 whitespace-nowrap">Fat. Direto (Inq.)</th><th className="pb-2 text-right text-amber-600 whitespace-nowrap">Fat. Indireto (Const.)</th><th className="pb-2 text-right text-rose-600 whitespace-nowrap">Saldo Retenção</th></tr>
                                       </thead>
                                       <tbody className="divide-y divide-slate-100/50">
                                         {linha.contratosDetalhes.map(c => (
                                           <tr key={c.id} className="hover:bg-white transition-colors">
-                                            <td className="py-3">
-                                              <div className="flex items-center gap-2"><CornerDownRight size={12} className="text-slate-300"/><div><p className="font-black text-slate-800 text-[11px]">{c.codigo_contrato}</p><p className="text-[9px] font-bold text-slate-500 truncate max-w-[200px]" title={c.razao_social}>{c.razao_social}</p></div></div>
+                                            <td className="py-2 sm:py-3">
+                                              <div className="flex items-center gap-1.5 sm:gap-2"><CornerDownRight size={12} className="text-slate-300 shrink-0"/><div><p className="font-black text-slate-800 text-[10px] sm:text-[11px]">{c.codigo_contrato}</p><p className="text-[8px] sm:text-[9px] font-bold text-slate-500 truncate max-w-[150px] sm:max-w-[200px]" title={c.razao_social}>{c.razao_social}</p></div></div>
                                             </td>
-                                            <td className="py-3 text-right">
-                                              <button onClick={(e) => openXRay(e, c, false)} className="inline-flex items-center justify-end gap-1 font-black text-slate-700 text-[11px] hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors group">
-                                                {formatMoney(c.tetoAtualizado)} <ScanSearch size={12} className="opacity-0 group-hover:opacity-100 transition-opacity"/>
+                                            <td className="py-2 sm:py-3 text-right">
+                                              <button onClick={(e) => openXRay(e, c, false)} className="inline-flex items-center justify-end gap-1 font-black text-slate-700 text-[10px] sm:text-[11px] hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-1.5 sm:px-2 py-0.5 rounded transition-colors group whitespace-nowrap">
+                                                {formatMoney(c.tetoAtualizado)} <ScanSearch size={10} className="sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-opacity"/>
                                               </button>
                                             </td>
-                                            <td className="py-3 text-right">
-                                              <button onClick={(e) => openXRay(e, c, false)} className="inline-flex flex-col items-end justify-end gap-0.5 font-bold text-slate-600 text-[11px] hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors group">
-                                                <span className="flex items-center gap-1">{formatMoney(c.saldoAdiantamento)} <ScanSearch size={12} className="opacity-0 group-hover:opacity-100 transition-opacity"/></span>
-                                                {c.adiantamentoTotal > 0 && <span className="text-[8px] text-slate-400 uppercase tracking-wider">de {formatMoney(c.adiantamentoTotal)}</span>}
+                                            <td className="py-2 sm:py-3 text-right">
+                                              <button onClick={(e) => openXRay(e, c, false)} className="inline-flex flex-col items-end justify-end gap-0.5 font-bold text-slate-600 text-[10px] sm:text-[11px] hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-1.5 sm:px-2 py-0.5 rounded transition-colors group whitespace-nowrap">
+                                                <span className="flex items-center gap-1">{formatMoney(c.saldoAdiantamento)} <ScanSearch size={10} className="sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-opacity"/></span>
+                                                {c.adiantamentoTotal > 0 && <span className="text-[7px] sm:text-[8px] text-slate-400 uppercase tracking-wider">de {formatMoney(c.adiantamentoTotal)}</span>}
                                               </button>
                                             </td>
-                                            <td className="py-3 text-right font-black text-emerald-700 text-[11px]">{formatMoney(c.fatDireto)}</td>
-                                            <td className="py-3 text-right font-black text-amber-700 text-[11px]">{formatMoney(c.fatIndireto)}</td>
-                                            <td className="py-3 text-right">
-                                              <button onClick={(e) => openXRay(e, c, false)} className="inline-flex items-center justify-end gap-1 font-black text-rose-600 text-[11px] hover:text-blue-600 bg-rose-50 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors group">
-                                                {formatMoney(c.saldoRetencao)} <ScanSearch size={12} className="opacity-0 group-hover:opacity-100 transition-opacity"/>
+                                            <td className="py-2 sm:py-3 text-right font-black text-emerald-700 text-[10px] sm:text-[11px] whitespace-nowrap">{formatMoney(c.fatDireto)}</td>
+                                            <td className="py-2 sm:py-3 text-right font-black text-amber-700 text-[10px] sm:text-[11px] whitespace-nowrap">{formatMoney(c.fatIndireto)}</td>
+                                            <td className="py-2 sm:py-3 text-right">
+                                              <button onClick={(e) => openXRay(e, c, false)} className="inline-flex items-center justify-end gap-1 font-black text-rose-600 text-[10px] sm:text-[11px] hover:text-blue-600 bg-rose-50 hover:bg-blue-50 px-1.5 sm:px-2 py-0.5 rounded transition-colors group whitespace-nowrap">
+                                                {formatMoney(c.saldoRetencao)} <ScanSearch size={10} className="sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-opacity"/>
                                               </button>
                                             </td>
                                           </tr>
@@ -526,10 +528,10 @@ function AbaDashboard() {
             )}
 
             {viewMode === 'fornecedor' && (
-              <div className="overflow-x-auto animate-in fade-in">
-                <table className="w-full text-sm text-left border-collapse">
+              <div className="overflow-x-auto animate-in fade-in max-w-full">
+                <table className="w-full text-sm text-left border-collapse min-w-[900px]">
                   <thead className="bg-indigo-50 border-b-2 border-indigo-100 text-indigo-800 font-black uppercase tracking-wider text-[9px]">
-                    <tr><th className="p-4 pl-6">Contrato Mestre (Fornecedor)</th><th className="p-4 text-right">Teto Global (Soma)</th><th className="p-4 text-right">Saldo Adiantamento</th><th className="p-4 text-right text-emerald-700">Total Direto (Inq.)</th><th className="p-4 text-right text-amber-700">Total Indireto (Const.)</th><th className="p-4 text-right text-rose-700">Saldo Retenção</th></tr>
+                    <tr><th className="p-3 sm:p-4 pl-4 sm:pl-6 whitespace-nowrap">Contrato Mestre (Fornecedor)</th><th className="p-3 sm:p-4 text-right whitespace-nowrap">Teto Global (Soma)</th><th className="p-3 sm:p-4 text-right whitespace-nowrap">Saldo Adiantamento</th><th className="p-3 sm:p-4 text-right text-emerald-700 whitespace-nowrap">Total Direto (Inq.)</th><th className="p-3 sm:p-4 text-right text-amber-700 whitespace-nowrap">Total Indireto (Const.)</th><th className="p-3 sm:p-4 text-right text-rose-700 whitespace-nowrap">Saldo Retenção</th></tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {consolidadosFiltrados.length === 0 ? (
@@ -540,63 +542,63 @@ function AbaDashboard() {
                         return (
                           <React.Fragment key={agg.baseCode}>
                             <tr className={`transition-colors cursor-pointer group ${isExpanded ? 'bg-indigo-50/30' : 'hover:bg-slate-50'}`} onClick={() => toggleContrato(agg.baseCode)}>
-                              <td className="p-4 pl-4 flex items-center gap-2">
+                              <td className="p-3 sm:p-4 pl-3 sm:pl-4 flex items-center gap-2 min-w-[200px]">
                                 <button className={`p-1 rounded-md transition-colors text-slate-600 bg-slate-200 group-hover:bg-indigo-200`}>{isExpanded ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}</button>
                                 <div>
                                   <div className="flex items-center gap-1.5 mb-0.5">
-                                    <span className={`font-black text-xs block leading-tight ${agg.status_vigencia === 'Encerrado' ? 'text-slate-400 line-through' : 'text-indigo-900'}`}>{agg.baseCode}</span>
-                                    {agg.status_vigencia === 'Encerrado' && <span className="text-[8px] font-black bg-slate-800 text-white px-1.5 py-0.5 rounded">Encerrado</span>}
+                                    <span className={`font-black text-[11px] sm:text-xs block leading-tight ${agg.status_vigencia === 'Encerrado' ? 'text-slate-400 line-through' : 'text-indigo-900'}`}>{agg.baseCode}</span>
+                                    {agg.status_vigencia === 'Encerrado' && <span className="text-[7px] sm:text-[8px] font-black bg-slate-800 text-white px-1.5 py-0.5 rounded">Encerrado</span>}
                                   </div>
-                                  <span className="font-bold text-slate-600 text-[10px] truncate max-w-[200px] block mt-0.5">{agg.fornecedor}</span>
+                                  <span className="font-bold text-slate-600 text-[9px] sm:text-[10px] truncate max-w-[150px] sm:max-w-[200px] block mt-0.5">{agg.fornecedor}</span>
                                 </div>
                               </td>
-                              <td className="p-4 text-right">
-                                <button onClick={(e) => openXRay(e, agg, true)} className="inline-flex items-center justify-end gap-1 font-black text-slate-900 text-base hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition-colors group">
-                                  {formatMoney(agg.tetoGlobal)} <ScanSearch size={14} className="opacity-0 group-hover:opacity-100 transition-opacity"/>
+                              <td className="p-3 sm:p-4 text-right">
+                                <button onClick={(e) => openXRay(e, agg, true)} className="inline-flex items-center justify-end gap-1 font-black text-slate-900 text-sm sm:text-base hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-2 sm:px-2.5 py-1 rounded-lg transition-colors group whitespace-nowrap">
+                                  {formatMoney(agg.tetoGlobal)} <ScanSearch size={12} className="sm:w-3.5 sm:h-3.5 opacity-0 group-hover:opacity-100 transition-opacity"/>
                                 </button>
                               </td>
-                              <td className="p-4 text-right">
-                                <button onClick={(e) => openXRay(e, agg, true)} className="inline-flex flex-col items-end justify-end gap-0.5 font-bold text-slate-600 text-xs hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition-colors group">
-                                  <span className="flex items-center gap-1">{formatMoney(agg.saldoAdiantamentoGlobal)} <ScanSearch size={14} className="opacity-0 group-hover:opacity-100 transition-opacity"/></span>
-                                  {agg.adiantamentoConcedidoGlobal > 0 && <span className="text-[8px] text-slate-400 uppercase tracking-wider">de {formatMoney(agg.adiantamentoConcedidoGlobal)}</span>}
+                              <td className="p-3 sm:p-4 text-right">
+                                <button onClick={(e) => openXRay(e, agg, true)} className="inline-flex flex-col items-end justify-end gap-0.5 font-bold text-slate-600 text-[10px] sm:text-xs hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-2 sm:px-2.5 py-1 rounded-lg transition-colors group whitespace-nowrap">
+                                  <span className="flex items-center gap-1">{formatMoney(agg.saldoAdiantamentoGlobal)} <ScanSearch size={12} className="sm:w-3.5 sm:h-3.5 opacity-0 group-hover:opacity-100 transition-opacity"/></span>
+                                  {agg.adiantamentoConcedidoGlobal > 0 && <span className="text-[7px] sm:text-[8px] text-slate-400 uppercase tracking-wider">de {formatMoney(agg.adiantamentoConcedidoGlobal)}</span>}
                                 </button>
                               </td>
-                              <td className="p-4 text-right font-black text-emerald-700">{formatMoney(agg.fatDiretoGlobal)}</td>
-                              <td className="p-4 text-right font-black text-amber-700">{formatMoney(agg.fatIndiretoGlobal)}</td>
-                              <td className="p-4 text-right">
-                                <button onClick={(e) => openXRay(e, agg, true)} className="inline-flex items-center justify-end gap-1 font-black text-rose-600 text-xs hover:text-blue-600 bg-rose-50 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition-colors group">
-                                  {formatMoney(agg.saldoRetencaoGlobal)} <ScanSearch size={14} className="opacity-0 group-hover:opacity-100 transition-opacity"/>
+                              <td className="p-3 sm:p-4 text-right font-black text-emerald-700 text-[11px] sm:text-sm whitespace-nowrap">{formatMoney(agg.fatDiretoGlobal)}</td>
+                              <td className="p-3 sm:p-4 text-right font-black text-amber-700 text-[11px] sm:text-sm whitespace-nowrap">{formatMoney(agg.fatIndiretoGlobal)}</td>
+                              <td className="p-3 sm:p-4 text-right">
+                                <button onClick={(e) => openXRay(e, agg, true)} className="inline-flex items-center justify-end gap-1 font-black text-rose-600 text-[10px] sm:text-xs hover:text-blue-600 bg-rose-50 hover:bg-blue-50 px-2 sm:px-2.5 py-1 rounded-lg transition-colors group whitespace-nowrap">
+                                  {formatMoney(agg.saldoRetencaoGlobal)} <ScanSearch size={12} className="sm:w-3.5 sm:h-3.5 opacity-0 group-hover:opacity-100 transition-opacity"/>
                                 </button>
                               </td>
                             </tr>
                             {isExpanded && (
                               <tr className="bg-slate-50/80 border-none">
                                 <td colSpan="6" className="p-0">
-                                  <div className="pl-12 pr-6 py-4 bg-gradient-to-r from-indigo-50/30 to-slate-50/30 border-l-4 border-l-indigo-400 shadow-inner">
-                                    <table className="w-full text-left">
-                                      <thead className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
-                                        <tr><th className="pb-2 w-1/3">Alocação / Rateio no PMG</th><th className="pb-2 text-right">Fração do Teto</th><th className="pb-2 text-right">Saldo Adiantamento</th><th className="pb-2 text-right text-emerald-600">Fat. Direto</th><th className="pb-2 text-right text-amber-600">Fat. Indireto</th><th className="pb-2 text-right text-rose-600">Saldo Retenção</th></tr>
+                                  <div className="pl-6 sm:pl-12 pr-3 sm:pr-6 py-3 sm:py-4 bg-gradient-to-r from-indigo-50/30 to-slate-50/30 border-l-2 sm:border-l-4 border-l-indigo-400 shadow-inner overflow-x-auto">
+                                    <table className="w-full text-left min-w-[700px]">
+                                      <thead className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                                        <tr><th className="pb-2 w-1/3 whitespace-nowrap">Alocação / Rateio no PMG</th><th className="pb-2 text-right whitespace-nowrap">Fração do Teto</th><th className="pb-2 text-right whitespace-nowrap">Saldo Adiantamento</th><th className="pb-2 text-right text-emerald-600 whitespace-nowrap">Fat. Direto</th><th className="pb-2 text-right text-amber-600 whitespace-nowrap">Fat. Indireto</th><th className="pb-2 text-right text-rose-600 whitespace-nowrap">Saldo Retenção</th></tr>
                                       </thead>
                                       <tbody className="divide-y divide-slate-100/50">
                                         {agg.faccoes.map(f => (
                                           <tr key={f.id} className="hover:bg-white transition-colors">
-                                            <td className="py-3">
-                                              <div className="flex items-center gap-2"><CornerDownRight size={12} className="text-slate-300"/><div><span className="inline-block px-1.5 py-0.5 bg-indigo-100 text-indigo-800 rounded text-[9px] font-black mr-1">{f.codigo_centro_custo}</span><span className="text-[10px] font-bold text-slate-600">{f.descricao_centro_custo}</span>{f.codigo_contrato !== agg.baseCode && <span className="block text-[8px] text-slate-400 uppercase mt-1">Ref. Fração: {f.codigo_contrato}</span>}</div></div>
+                                            <td className="py-2 sm:py-3">
+                                              <div className="flex items-center gap-1.5 sm:gap-2"><CornerDownRight size={12} className="text-slate-300 shrink-0"/><div><span className="inline-block px-1.5 py-0.5 bg-indigo-100 text-indigo-800 rounded text-[8px] sm:text-[9px] font-black mr-1">{f.codigo_centro_custo}</span><span className="text-[9px] sm:text-[10px] font-bold text-slate-600">{f.descricao_centro_custo}</span>{f.codigo_contrato !== agg.baseCode && <span className="block text-[7px] sm:text-[8px] text-slate-400 uppercase mt-1">Ref. Fração: {f.codigo_contrato}</span>}</div></div>
                                             </td>
-                                            <td className="py-3 text-right">
-                                              <button onClick={(e) => openXRay(e, f, false)} className="inline-flex items-center justify-end gap-1 font-black text-slate-700 text-[11px] hover:text-blue-600 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors group">
+                                            <td className="py-2 sm:py-3 text-right">
+                                              <button onClick={(e) => openXRay(e, f, false)} className="inline-flex items-center justify-end gap-1 font-black text-slate-700 text-[10px] sm:text-[11px] hover:text-blue-600 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors group whitespace-nowrap">
                                                 {formatMoney(f.tetoAtualizado)} <ScanSearch size={10} className="opacity-0 group-hover:opacity-100 transition-opacity"/>
                                               </button>
                                             </td>
-                                            <td className="py-3 text-right">
-                                              <button onClick={(e) => openXRay(e, f, false)} className="inline-flex flex-col items-end justify-end gap-0.5 font-bold text-slate-500 text-[11px] hover:text-blue-600 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors group">
+                                            <td className="py-2 sm:py-3 text-right">
+                                              <button onClick={(e) => openXRay(e, f, false)} className="inline-flex flex-col items-end justify-end gap-0.5 font-bold text-slate-500 text-[10px] sm:text-[11px] hover:text-blue-600 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors group whitespace-nowrap">
                                                 <span className="flex items-center gap-1">{formatMoney(f.saldoAdiantamento)} <ScanSearch size={10} className="opacity-0 group-hover:opacity-100 transition-opacity"/></span>
                                               </button>
                                             </td>
-                                            <td className="py-3 text-right font-black text-emerald-700 text-[11px]">{formatMoney(f.fatDireto)}</td>
-                                            <td className="py-3 text-right font-black text-amber-700 text-[11px]">{formatMoney(f.fatIndireto)}</td>
-                                            <td className="py-3 text-right">
-                                              <button onClick={(e) => openXRay(e, f, false)} className="inline-flex items-center justify-end gap-1 font-bold text-rose-600 text-[11px] hover:text-blue-600 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors group">
+                                            <td className="py-2 sm:py-3 text-right font-black text-emerald-700 text-[10px] sm:text-[11px] whitespace-nowrap">{formatMoney(f.fatDireto)}</td>
+                                            <td className="py-2 sm:py-3 text-right font-black text-amber-700 text-[10px] sm:text-[11px] whitespace-nowrap">{formatMoney(f.fatIndireto)}</td>
+                                            <td className="py-2 sm:py-3 text-right">
+                                              <button onClick={(e) => openXRay(e, f, false)} className="inline-flex items-center justify-end gap-1 font-bold text-rose-600 text-[10px] sm:text-[11px] hover:text-blue-600 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-colors group whitespace-nowrap">
                                                 {formatMoney(f.saldoRetencao)} <ScanSearch size={10} className="opacity-0 group-hover:opacity-100 transition-opacity"/>
                                               </button>
                                             </td>
@@ -624,7 +626,8 @@ function AbaDashboard() {
 }
 
 // ============================================================================
-// 2. ABA 1: GESTÃO ESTRUTURAL (ORÇAMENTO PMG E CONTRATOS)
+// 2. ABA 1: GESTÃO ESTRUTURAL E CRUDs OMITIDOS POR BREVIDADE
+// ... (Tudo o resto do App.jsx mantém-se igual à versão anterior)
 // ============================================================================
 function AbaContratos() {
   const [empresas, setEmpresas] = useState([]);
@@ -839,7 +842,7 @@ function AbaContratos() {
   const toggleGroup = (baseCode) => setExpandedGroups(prev => ({...prev, [baseCode]: !prev[baseCode]}));
 
   return (
-    <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-6 pb-20">
+    <div className="animate-in fade-in duration-700 w-full max-w-7xl mx-auto space-y-6 pb-20 px-2 sm:px-0">
       
       {showModalAditivo && selectedContratoForAditivo && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -907,47 +910,47 @@ function AbaContratos() {
       )}
 
       <header className="mb-4">
-        <h2 className="text-3xl font-black text-slate-900 tracking-tight">EAP e Contratação</h2>
-        <p className="text-slate-500">Definição do Orçamento Base (PMG) e vínculo com fornecedores.</p>
+        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">EAP e Contratação</h2>
+        <p className="text-sm sm:text-base text-slate-500">Definição do Orçamento Base (PMG) e vínculo com fornecedores.</p>
       </header>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest mb-4 flex items-center gap-2"><Building2 size={16}/> 1. Investidor</h3>
           <select className="w-full mb-4 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500" value={selectedEmpresaId} onChange={e => setSelectedEmpresaId(e.target.value)}>
             <option value="">-- Selecionar Investidor --</option>
             {empresas.map(emp => <option key={emp.id} value={emp.id}>{emp.razao_social}</option>)}
           </select>
-          <form onSubmit={handleAddEmpresa} className="flex gap-2 pt-4 border-t border-slate-100">
+          <form onSubmit={handleAddEmpresa} className="flex flex-col sm:flex-row gap-2 pt-4 border-t border-slate-100">
             <input required placeholder="Nome do Grupo" className="flex-1 p-2 border border-slate-200 rounded-lg text-xs" value={formEmpresa.razao_social} onChange={e => setFormEmpresa({...formEmpresa, razao_social: e.target.value})} />
-            <input required placeholder="CNPJ" className="w-32 p-2 border border-slate-200 rounded-lg text-xs" value={formEmpresa.cnpj} onChange={e => setFormEmpresa({...formEmpresa, cnpj: e.target.value})} />
+            <input required placeholder="CNPJ" className="w-full sm:w-32 p-2 border border-slate-200 rounded-lg text-xs" value={formEmpresa.cnpj} onChange={e => setFormEmpresa({...formEmpresa, cnpj: e.target.value})} />
             <button type="submit" className="bg-slate-900 text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-800 transition-colors">Criar</button>
           </form>
         </div>
         
-        <div className={`bg-white p-5 rounded-2xl shadow-sm border border-slate-200 transition-all ${!selectedEmpresaId ? 'opacity-30 pointer-events-none' : ''}`}>
+        <div className={`bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 transition-all ${!selectedEmpresaId ? 'opacity-30 pointer-events-none' : ''}`}>
           <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest mb-4 flex items-center gap-2"><HardHat size={16}/> 2. Empreendimento (Obra)</h3>
           <select className="w-full mb-4 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500" value={selectedObraId} onChange={e => setSelectedObraId(e.target.value)}>
             <option value="">-- Selecionar Obra --</option>
             {obras.map(o => <option key={o.id} value={o.id}>{o.codigo_obra} - {o.nome_obra}</option>)}
           </select>
-          <form onSubmit={handleAddObra} className="flex gap-2 pt-4 border-t border-slate-100">
-            <input required placeholder="Cód. Obra" className="w-24 p-2 border border-slate-200 rounded-lg text-xs" value={formObra.codigo_obra} onChange={e => setFormObra({...formObra, codigo_obra: e.target.value})} />
+          <form onSubmit={handleAddObra} className="flex flex-col sm:flex-row gap-2 pt-4 border-t border-slate-100">
+            <input required placeholder="Cód. Obra" className="w-full sm:w-24 p-2 border border-slate-200 rounded-lg text-xs" value={formObra.codigo_obra} onChange={e => setFormObra({...formObra, codigo_obra: e.target.value})} />
             <input required placeholder="Nome do Projeto" className="flex-1 p-2 border border-slate-200 rounded-lg text-xs" value={formObra.nome_obra} onChange={e => setFormObra({...formObra, nome_obra: e.target.value})} />
             <button type="submit" className="bg-slate-900 text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-800 transition-colors">Criar</button>
           </form>
         </div>
       </div>
 
-      <div className={`grid grid-cols-1 xl:grid-cols-12 gap-6 transition-all duration-500 ${!selectedObraId ? 'opacity-30 pointer-events-none grayscale blur-[2px]' : ''}`}>
+      <div className={`grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 transition-all duration-500 ${!selectedObraId ? 'opacity-30 pointer-events-none grayscale blur-[2px]' : ''}`}>
         
-        <div className="xl:col-span-5 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full relative">
+        <div className="xl:col-span-5 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full relative">
           {isEditingOrcamento && (
              <div className="absolute -top-3 left-6 bg-amber-400 text-amber-900 text-[9px] font-black uppercase px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
                 Editando EAP <button type="button" onClick={handleCancelEditOrcamento}><X size={12}/></button>
              </div>
           )}
-          <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest mb-6 flex items-center gap-2"><ListTree size={16} className="text-blue-600"/> 3. Linha Base PMG (EAP)</h3>
+          <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest mb-4 sm:mb-6 flex items-center gap-2"><ListTree size={16} className="text-blue-600"/> 3. Linha Base PMG (EAP)</h3>
           
           <div className="flex-1 space-y-2 mb-6 min-h-[250px] max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
             {orcamentos.length === 0 && (
@@ -965,7 +968,7 @@ function AbaContratos() {
                 <div className="text-right shrink-0 flex items-center gap-2">
                    <div className="text-right mr-1">
                      <p className="text-[9px] font-black text-slate-400 uppercase leading-none mb-0.5">Teto Aprovado</p>
-                     <p className="text-sm font-black text-blue-700">{formatMoney(orc.valor_aprovado_teto)}</p>
+                     <p className="text-xs sm:text-sm font-black text-blue-700">{formatMoney(orc.valor_aprovado_teto)}</p>
                    </div>
                    <button onClick={() => handleEditOrcamentoClick(orc)} className="p-1.5 bg-white border border-slate-200 text-slate-500 rounded-lg hover:bg-amber-100 hover:text-amber-700 transition-colors" title="Editar Linha PMG">
                      <Pencil size={14} />
@@ -979,9 +982,9 @@ function AbaContratos() {
           </div>
 
           <form onSubmit={handleAddOrUpdateOrcamento} className="space-y-3 pt-5 border-t border-slate-100 mt-auto">
-            <div className="grid grid-cols-3 gap-2">
-               <div className="col-span-1"><input required placeholder="Cód (Ex: 01.01)" className="w-full p-2.5 border border-slate-200 rounded-lg text-xs font-bold focus:border-blue-400 outline-none" value={formOrcamento.codigo_centro_custo} onChange={e => setFormOrcamento({...formOrcamento, codigo_centro_custo: e.target.value})} /></div>
-               <div className="col-span-2"><input required placeholder="Descrição (Ex: Fundação)" className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:border-blue-400 outline-none" value={formOrcamento.descricao_servico} onChange={e => setFormOrcamento({...formOrcamento, descricao_servico: e.target.value})} /></div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+               <div className="sm:col-span-1"><input required placeholder="Cód (Ex: 01.01)" className="w-full p-2.5 border border-slate-200 rounded-lg text-xs font-bold focus:border-blue-400 outline-none" value={formOrcamento.codigo_centro_custo} onChange={e => setFormOrcamento({...formOrcamento, codigo_centro_custo: e.target.value})} /></div>
+               <div className="sm:col-span-2"><input required placeholder="Descrição (Ex: Fundação)" className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:border-blue-400 outline-none" value={formOrcamento.descricao_servico} onChange={e => setFormOrcamento({...formOrcamento, descricao_servico: e.target.value})} /></div>
             </div>
             <div>
               <span className="text-[9px] font-black text-blue-600 uppercase ml-1 block mb-1">Valor Aprovado (Capex)</span>
@@ -993,7 +996,7 @@ function AbaContratos() {
           </form>
         </div>
 
-        <div className="xl:col-span-7 bg-white p-6 rounded-2xl shadow-xl border-t-4 border-t-emerald-500 border-x border-b border-slate-200 h-full">
+        <div className="xl:col-span-7 bg-white p-4 sm:p-6 rounded-2xl shadow-xl border-t-4 border-t-emerald-500 border-x border-b border-slate-200 h-full">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest flex items-center gap-2"><FolderLock size={16} className="text-emerald-600"/> 4. Formulário de Contrato</h3>
           </div>
@@ -1005,7 +1008,7 @@ function AbaContratos() {
               </div>
             )}
             
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Cód. Contrato</label><input required placeholder="Ex: CT-001" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm font-semibold focus:border-emerald-400 outline-none" value={formContrato.codigo_contrato} onChange={e => setFormContrato({...formContrato, codigo_contrato: e.target.value})} /></div>
               <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">CNPJ Fornecedor</label><input required placeholder="Apenas números" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:border-emerald-400 outline-none" value={formContrato.cnpj_fornecedor} onChange={e => setFormContrato({...formContrato, cnpj_fornecedor: e.target.value})} /></div>
             </div>
@@ -1015,12 +1018,12 @@ function AbaContratos() {
               <input required className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:border-emerald-400 outline-none" value={formContrato.razao_social} onChange={e => setFormContrato({...formContrato, razao_social: e.target.value})} />
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
               <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data de Início</label><input required type="date" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 focus:border-emerald-400 outline-none" value={formContrato.data_inicio} onChange={e => setFormContrato({...formContrato, data_inicio: e.target.value})} /></div>
               <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data de Fechamento</label><input required type="date" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 focus:border-emerald-400 outline-none" value={formContrato.data_fechamento} onChange={e => setFormContrato({...formContrato, data_fechamento: e.target.value})} /></div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 border border-slate-100 rounded-xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 border border-slate-100 rounded-xl">
               <div>
                 <label className="text-[10px] font-black text-emerald-600 uppercase ml-1 block mb-1">Valor Negociado (Base)</label>
                 <CurrencyInput required className="w-full p-3 border border-emerald-300 rounded-lg text-base font-black text-emerald-900 bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500" value={formContrato.valor_inicial} onChange={val => setFormContrato({...formContrato, valor_inicial: val})} />
@@ -1032,15 +1035,15 @@ function AbaContratos() {
             </div>
 
             <div className="mt-auto">
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="col-span-2 p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
-                   <label className="text-[11px] font-black text-blue-800 uppercase mb-2 flex items-center gap-2"><ListTree size={14}/> Vincular à Linha do PMG (Centro de Custo)</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div className="sm:col-span-2 p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+                   <label className="text-[11px] font-black text-blue-800 uppercase mb-2 flex items-center gap-2"><ListTree size={14}/> Vincular à Linha do PMG</label>
                    <select required className="w-full p-2 bg-white border border-blue-300 rounded-lg text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm cursor-pointer" value={formContrato.orcamento_pmg_id} onChange={e => setFormContrato({...formContrato, orcamento_pmg_id: e.target.value})}>
                      <option value="">-- Selecione onde alocar este custo --</option>
                      {orcamentos.map(orc => <option key={orc.id} value={orc.id}>{orc.codigo_centro_custo} - {orc.descricao_servico} (Teto: {formatMoney(orc.valor_aprovado_teto)})</option>)}
                    </select>
                 </div>
-                <div className="col-span-1 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <div className="sm:col-span-1 p-3 bg-slate-50 border border-slate-200 rounded-xl">
                    <label className="text-[10px] font-black text-slate-500 uppercase mb-2 flex items-center gap-2">Status da Vigência</label>
                    <select className={`w-full p-2 bg-white border rounded-lg text-xs font-bold outline-none cursor-pointer ${formContrato.status_vigencia === 'Ativo' ? 'text-emerald-700 border-emerald-300' : (formContrato.status_vigencia === 'Encerrado' ? 'text-slate-500 border-slate-300 bg-slate-100' : 'text-amber-700 border-amber-300')}`} value={formContrato.status_vigencia} onChange={e => setFormContrato({...formContrato, status_vigencia: e.target.value})}>
                      <option value="Ativo">Ativo (Rodando)</option>
@@ -1062,7 +1065,7 @@ function AbaContratos() {
                      </p>
                   </div>
                   <div className="text-right">
-                    <span className={`text-2xl font-black block ${saveGerado >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    <span className={`text-xl sm:text-2xl font-black block ${saveGerado >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                       {formatMoney(saveGerado)}
                     </span>
                     <span className={`text-[9px] font-bold uppercase tracking-wider ${saveGerado >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
@@ -1081,32 +1084,32 @@ function AbaContratos() {
       </div>
 
       <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-500 ${!selectedObraId ? 'opacity-30 pointer-events-none grayscale blur-[2px]' : ''}`}>
-        <div className="p-6 bg-slate-900 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="p-4 sm:p-6 bg-slate-900 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div className="flex items-center gap-3 text-white">
             <div className="p-2 bg-slate-800 rounded-lg"><Database size={20} className="text-blue-400"/></div>
             <div>
-              <h3 className="font-black text-lg">Árvore de Contratos & Aditivos</h3>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{Object.keys(groupedContracts).length} Grupos Encontrados</p>
+              <h3 className="font-black text-base sm:text-lg">Árvore de Contratos & Aditivos</h3>
+              <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-widest">{Object.keys(groupedContracts).length} Grupos Encontrados</p>
             </div>
           </div>
           
-          <div className="relative w-full md:w-96">
+          <div className="relative w-full lg:w-96">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search size={16} className="text-slate-400"/></div>
             <input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-3 bg-slate-800 border-none rounded-xl text-sm text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none" value={buscaContrato} onChange={(e) => setBuscaContrato(e.target.value)} />
             {buscaContrato && <button onClick={() => setBuscaContrato('')} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"><X size={16}/></button>}
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+        <div className="overflow-x-auto max-w-full">
+          <table className="w-full text-sm text-left min-w-[800px]">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-black uppercase tracking-wider text-[10px]">
               <tr>
                 <th className="p-4 pl-6 w-10"></th>
-                <th className="p-4">Cód. Contrato</th>
-                <th className="p-4">Fornecedor</th>
-                <th className="p-4">Linha PMG (CC)</th>
-                <th className="p-4 text-right">Teto Unificado (R$)</th>
-                <th className="p-4 text-center pr-6">Ações</th>
+                <th className="p-4 whitespace-nowrap">Cód. Contrato</th>
+                <th className="p-4 whitespace-nowrap">Fornecedor</th>
+                <th className="p-4 whitespace-nowrap">Linha PMG (CC)</th>
+                <th className="p-4 text-right whitespace-nowrap">Teto Unificado (R$)</th>
+                <th className="p-4 text-center pr-6 whitespace-nowrap">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1134,7 +1137,7 @@ function AbaContratos() {
                             </button>
                           )}
                         </td>
-                        <td className="p-4 font-black text-slate-900">
+                        <td className="p-4 font-black text-slate-900 whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
                             <span className={root.status_vigencia === 'Encerrado' ? 'text-slate-400 line-through' : ''}>{root.codigo_contrato}</span>
                             {root.status_vigencia === 'Encerrado' && <span className="text-[8px] font-black bg-slate-800 text-white px-1.5 py-0.5 rounded">Encerrado</span>}
@@ -1145,11 +1148,11 @@ function AbaContratos() {
                           <p className="text-[10px] text-slate-400 font-mono mt-0.5">CNPJ: {root.cnpj_fornecedor}</p>
                         </td>
                         <td className="p-4">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
                             {root.centro_custo_raiz}
                           </span>
                         </td>
-                        <td className="p-4 text-right">
+                        <td className="p-4 text-right whitespace-nowrap">
                           <p className="font-black text-slate-900 text-base" title="Soma da Base + Aditivos + Rateios">{formatMoney(group.totalUnified)}</p>
                           {hasChildren && <p className="text-[9px] text-blue-600 font-bold uppercase mt-0.5">Teto Global Consolidado</p>}
                           {!hasChildren && <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Base: {formatMoney(root.valor_inicial)}</p>}
@@ -1176,9 +1179,9 @@ function AbaContratos() {
                           {rootHasAditivos && root.aditivos_contrato.map(aditivo => (
                             <tr key={aditivo.id} className="bg-slate-50 border-none">
                               <td></td>
-                              <td className="p-2 pl-8 text-[11px] font-black text-slate-500 flex items-center gap-2 border-l-2 border-slate-300 ml-4"><CornerDownRight size={14} className="text-slate-400"/> {aditivo.numero_aditivo}</td>
+                              <td className="p-2 pl-8 text-[11px] font-black text-slate-500 flex items-center gap-2 border-l-2 border-slate-300 ml-4 whitespace-nowrap"><CornerDownRight size={14} className="text-slate-400"/> {aditivo.numero_aditivo}</td>
                               <td className="p-2 text-[11px] text-slate-500 truncate" colSpan="2">{aditivo.motivo_justificativa} (Assinatura: {formatDate(aditivo.data_assinatura)})</td>
-                              <td className={`p-2 text-right text-xs font-black pr-4 ${aditivo.valor_acrescimo >= 0 ? 'text-slate-700' : 'text-rose-600'}`}>
+                              <td className={`p-2 text-right text-xs font-black pr-4 whitespace-nowrap ${aditivo.valor_acrescimo >= 0 ? 'text-slate-700' : 'text-rose-600'}`}>
                                 {aditivo.valor_acrescimo > 0 ? '+' : ''}{formatMoney(aditivo.valor_acrescimo)}
                               </td>
                               <td></td>
@@ -1189,11 +1192,11 @@ function AbaContratos() {
                             <React.Fragment key={r.id}>
                               <tr className="bg-indigo-50/30 border-t border-slate-100/50">
                                 <td></td>
-                                <td className="p-3 pl-8 text-xs font-black text-indigo-900 flex items-center gap-2 border-l-2 border-indigo-300 ml-4"><CornerDownRight size={14} className="text-indigo-400"/> {r.codigo_contrato}</td>
+                                <td className="p-3 pl-8 text-xs font-black text-indigo-900 flex items-center gap-2 border-l-2 border-indigo-300 ml-4 whitespace-nowrap"><CornerDownRight size={14} className="text-indigo-400"/> {r.codigo_contrato}</td>
                                 <td className="p-3 text-[10px] text-slate-500 font-bold uppercase tracking-wider">Fração de Rateio</td>
-                                <td className="p-3"><span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black bg-indigo-100 text-indigo-700">{r.centro_custo_raiz}</span></td>
+                                <td className="p-3"><span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black bg-indigo-100 text-indigo-700 whitespace-nowrap">{r.centro_custo_raiz}</span></td>
                                 <td className="p-3 text-right">
-                                  <p className="font-black text-indigo-900 text-sm">{formatMoney(r.valor_inicial)}</p>
+                                  <p className="font-black text-indigo-900 text-sm whitespace-nowrap">{formatMoney(r.valor_inicial)}</p>
                                 </td>
                                 <td className="p-3 pr-6 text-center space-x-1.5 whitespace-nowrap">
                                   <button onClick={() => { setSelectedContratoForAditivo(r); setShowModalAditivo(true); }} className="inline-flex items-center gap-1 px-2 py-1 bg-white text-slate-600 border border-slate-200 rounded text-[9px] font-black uppercase hover:bg-slate-800 hover:text-white transition-colors" title="Aditivo no Rateio">
@@ -1210,9 +1213,9 @@ function AbaContratos() {
                               {r.aditivos_contrato && r.aditivos_contrato.map(aditivo => (
                                 <tr key={aditivo.id} className="bg-indigo-50/10 border-none">
                                   <td></td>
-                                  <td className="p-2 pl-12 text-[10px] font-black text-slate-500 flex items-center gap-2 border-l-2 border-slate-200 ml-4"><History size={10} className="opacity-50"/> {aditivo.numero_aditivo}</td>
+                                  <td className="p-2 pl-12 text-[10px] font-black text-slate-500 flex items-center gap-2 border-l-2 border-slate-200 ml-4 whitespace-nowrap"><History size={10} className="opacity-50"/> {aditivo.numero_aditivo}</td>
                                   <td className="p-2 text-[10px] text-slate-500 truncate" colSpan="2">{aditivo.motivo_justificativa}</td>
-                                  <td className={`p-2 text-right text-xs font-black pr-4 ${aditivo.valor_acrescimo >= 0 ? 'text-slate-700' : 'text-rose-600'}`}>
+                                  <td className={`p-2 text-right text-xs font-black pr-4 whitespace-nowrap ${aditivo.valor_acrescimo >= 0 ? 'text-slate-700' : 'text-rose-600'}`}>
                                     {aditivo.valor_acrescimo > 0 ? '+' : ''}{formatMoney(aditivo.valor_acrescimo)}
                                   </td>
                                   <td></td>
@@ -1272,36 +1275,36 @@ function AbaEngenharia() {
   };
 
   return (
-    <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-8">
-      <header><h2 className="text-3xl font-black text-slate-900 tracking-tight">Engenharia e Aprovações</h2><p className="text-slate-500">Registro de Avanço Físico (Medições) e Aprovação de Materiais.</p></header>
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4">
-        <div className="flex-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">1. Investidor</label><select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={selectedEmpresaId} onChange={e => setSelectedEmpresaId(e.target.value)}><option value="">-- Empresa --</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.razao_social}</option>)}</select></div>
-        <div className="flex-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">2. Obra</label><select disabled={!selectedEmpresaId} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={selectedObraId} onChange={e => setSelectedObraId(e.target.value)}><option value="">-- Obra --</option>{obras.map(o => <option key={o.id} value={o.id}>{o.codigo_obra}</option>)}</select></div>
-        <div className="flex-1"><label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1 block">3. Contrato Alvo</label><select disabled={!selectedObraId} className="w-full p-3 bg-emerald-50 border border-emerald-200 rounded-xl font-black text-emerald-800" value={selectedContratoId} onChange={e => setSelectedContratoId(e.target.value)}><option value="">-- Contrato --</option>{contratos.map(c => <option key={c.id} value={c.id}>{c.codigo_contrato}</option>)}</select></div>
+    <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-8 px-2 sm:px-0">
+      <header><h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Engenharia e Aprovações</h2><p className="text-sm sm:text-base text-slate-500">Registro de Avanço Físico (Medições) e Aprovação de Materiais.</p></header>
+      <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4">
+        <div className="flex-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">1. Investidor</label><select className="w-full p-2.5 sm:p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs sm:text-sm" value={selectedEmpresaId} onChange={e => setSelectedEmpresaId(e.target.value)}><option value="">-- Empresa --</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.razao_social}</option>)}</select></div>
+        <div className="flex-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">2. Obra</label><select disabled={!selectedEmpresaId} className="w-full p-2.5 sm:p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs sm:text-sm disabled:opacity-50" value={selectedObraId} onChange={e => setSelectedObraId(e.target.value)}><option value="">-- Obra --</option>{obras.map(o => <option key={o.id} value={o.id}>{o.codigo_obra}</option>)}</select></div>
+        <div className="flex-1"><label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1 block">3. Contrato Alvo</label><select disabled={!selectedObraId} className="w-full p-2.5 sm:p-3 bg-emerald-50 border border-emerald-200 rounded-xl font-black text-emerald-800 text-xs sm:text-sm disabled:opacity-50" value={selectedContratoId} onChange={e => setSelectedContratoId(e.target.value)}><option value="">-- Contrato --</option>{contratos.map(c => <option key={c.id} value={c.id}>{c.codigo_contrato}</option>)}</select></div>
       </div>
-      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-8 ${!selectedContratoId ? 'opacity-30 pointer-events-none blur-sm' : ''}`}>
-        <div className="bg-white p-6 rounded-2xl shadow-md border-t-4 border-t-blue-500 border-x border-b border-slate-200">
+      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 ${!selectedContratoId ? 'opacity-30 pointer-events-none blur-sm' : ''}`}>
+        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-md border-t-4 border-t-blue-500 border-x border-b border-slate-200">
           <div className="flex items-center gap-3 mb-6"><div className="p-3 bg-blue-100 rounded-xl text-blue-600"><ShoppingCart size={24}/></div><h3 className="font-black text-slate-800 text-lg">Pedidos de Compra</h3></div>
           <form onSubmit={handleAddPedido} className="space-y-4 mb-8 bg-slate-50 p-4 rounded-xl border border-slate-100">
-            <div className="grid grid-cols-2 gap-3"><input required placeholder="Cód. (PC-001)" className="p-2.5 border border-slate-200 rounded-lg text-sm" value={formPedido.codigo_pedido} onChange={e => setFormPedido({...formPedido, codigo_pedido: e.target.value})} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><input required placeholder="Cód. (PC-001)" className="p-2.5 border border-slate-200 rounded-lg text-sm" value={formPedido.codigo_pedido} onChange={e => setFormPedido({...formPedido, codigo_pedido: e.target.value})} />
             <CurrencyInput required placeholder="Valor Aprovado (R$)" className="p-2.5 border border-slate-200 rounded-lg text-sm font-bold" value={formPedido.valor_total_aprovado} onChange={val => setFormPedido({...formPedido, valor_total_aprovado: val})} /></div>
             <input required placeholder="Fornecedor Material" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formPedido.razao_social_terceiro} onChange={e => setFormPedido({...formPedido, razao_social_terceiro: e.target.value})} />
-            <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-xl text-sm font-black hover:bg-blue-700">Aprovar Pedido</button>
+            <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-xl text-sm font-black hover:bg-blue-700 transition-colors">Aprovar Pedido</button>
           </form>
-          <div className="space-y-3 max-h-60 overflow-y-auto">{pedidos.map(p => (<div key={p.id} className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm flex justify-between items-center"><span className="text-sm font-black">{p.codigo_pedido}</span><span className="text-sm font-black text-blue-600">{formatMoney(p.valor_total_aprovado)}</span></div>))}</div>
+          <div className="space-y-3 max-h-60 overflow-y-auto pr-1">{pedidos.map(p => (<div key={p.id} className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm flex justify-between items-center"><span className="text-sm font-black">{p.codigo_pedido}</span><span className="text-sm font-black text-blue-600">{formatMoney(p.valor_total_aprovado)}</span></div>))}</div>
         </div>
-        <div className="bg-white p-6 rounded-2xl shadow-md border-t-4 border-t-emerald-500 border-x border-b border-slate-200">
+        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-md border-t-4 border-t-emerald-500 border-x border-b border-slate-200">
           <div className="flex items-center gap-3 mb-6"><div className="p-3 bg-emerald-100 rounded-xl text-emerald-600"><Ruler size={24}/></div><h3 className="font-black text-slate-800 text-lg">Boletins de Medição</h3></div>
           <form onSubmit={handleAddMedicao} className="space-y-4 mb-8 bg-slate-50 p-4 rounded-xl border border-slate-100">
-            <div className="grid grid-cols-2 gap-3"><input required placeholder="Cód. (BM-01)" className="p-2.5 border border-slate-200 rounded-lg text-sm" value={formMedicao.codigo_medicao} onChange={e => setFormMedicao({...formMedicao, codigo_medicao: e.target.value})} /><input required type="date" className="p-2.5 border border-slate-200 rounded-lg text-sm" value={formMedicao.data_lancamento} onChange={e => setFormMedicao({...formMedicao, data_lancamento: e.target.value})} /></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><input required placeholder="Cód. (BM-01)" className="p-2.5 border border-slate-200 rounded-lg text-sm" value={formMedicao.codigo_medicao} onChange={e => setFormMedicao({...formMedicao, codigo_medicao: e.target.value})} /><input required type="date" className="p-2.5 border border-slate-200 rounded-lg text-sm" value={formMedicao.data_lancamento} onChange={e => setFormMedicao({...formMedicao, data_lancamento: e.target.value})} /></div>
             <CurrencyInput required placeholder="Valor Bruto (R$)" className="w-full p-3 border border-emerald-200 bg-emerald-50/50 rounded-lg text-sm font-black" value={formMedicao.valor_bruto_medido} onChange={val => setFormMedicao({...formMedicao, valor_bruto_medido: val})} />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <CurrencyInput placeholder="Desc. Canteiro (R$)" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formMedicao.desconto_fundo_canteiro} onChange={val => setFormMedicao({...formMedicao, desconto_fundo_canteiro: val})} />
               <CurrencyInput placeholder="Outros Desc. (R$)" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm" value={formMedicao.descontos_diversos} onChange={val => setFormMedicao({...formMedicao, descontos_diversos: val})} />
             </div>
-            <button type="submit" className="w-full bg-emerald-600 text-white p-3 rounded-xl text-sm font-black hover:bg-emerald-700">Aprovar Medição</button>
+            <button type="submit" className="w-full bg-emerald-600 text-white p-3 rounded-xl text-sm font-black hover:bg-emerald-700 transition-colors">Aprovar Medição</button>
           </form>
-          <div className="space-y-3 max-h-60 overflow-y-auto">{medicoes.map(m => (<div key={m.id} className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm flex justify-between items-center"><span className="text-sm font-black">{m.codigo_medicao}</span><span className="text-sm font-black text-emerald-600">{formatMoney(m.valor_bruto_medido)}</span></div>))}</div>
+          <div className="space-y-3 max-h-60 overflow-y-auto pr-1">{medicoes.map(m => (<div key={m.id} className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm flex justify-between items-center"><span className="text-sm font-black">{m.codigo_medicao}</span><span className="text-sm font-black text-emerald-600">{formatMoney(m.valor_bruto_medido)}</span></div>))}</div>
         </div>
       </div>
     </div>
@@ -1331,7 +1334,6 @@ function AbaAlfandega() {
   const [originalNF, setOriginalNF] = useState(null);
   const [actionMenuOpen, setActionMenuOpen] = useState(null); 
   
-  // PESQUISA GLOBAL STATE
   const [pesquisaGlobalTerm, setPesquisaGlobalTerm] = useState('');
   const [resultadoGlobal, setResultadoGlobal] = useState(null);
   const [isPesquisandoGlobal, setIsPesquisandoGlobal] = useState(false);
@@ -1374,7 +1376,6 @@ function AbaAlfandega() {
     setNotasFiscais(data || []); 
   }
 
-  // CÉREBRO DO BUSCADOR GLOBAL
   const handlePesquisaGlobal = async (e) => {
     e.preventDefault();
     if(!pesquisaGlobalTerm || !selectedObraId) return alert("Selecione uma Obra primeiro e digite um Nº de Nota ou CNPJ.");
@@ -1409,6 +1410,7 @@ function AbaAlfandega() {
       tipo_documento: nf.tipo_documento || 'Nota Fiscal'
     });
     setOriginalNF(nf); setIsEditingNF(true); setActionMenuOpen(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteAcao = async (nf, acao) => {
@@ -1477,39 +1479,39 @@ function AbaAlfandega() {
   });
 
   return (
-    <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-8 pb-20">
+    <div className="animate-in fade-in duration-700 w-full max-w-7xl mx-auto space-y-6 sm:space-y-8 pb-20 px-2 sm:px-0">
       
       {/* MODAL DO BUSCADOR GLOBAL */}
       {resultadoGlobal && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-900 text-white shrink-0">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[95vh] sm:max-h-[90vh]">
+            <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-900 text-white shrink-0">
               <div>
-                <h3 className="font-black text-xl flex items-center gap-2"><Globe size={22} className="text-indigo-400"/> Radar de Rateio (Pesquisa Global)</h3>
-                <p className="text-xs text-indigo-300 font-bold tracking-wide mt-1">Buscando por: "{pesquisaGlobalTerm}" na obra selecionada.</p>
+                <h3 className="font-black text-base sm:text-xl flex items-center gap-2"><Globe size={20} className="text-indigo-400"/> Radar de Rateio (Global)</h3>
+                <p className="text-[10px] sm:text-xs text-indigo-300 font-bold tracking-wide mt-1">Buscando por: "{pesquisaGlobalTerm}"</p>
               </div>
-              <button onClick={() => setResultadoGlobal(null)} className="text-indigo-400 hover:text-white p-2 bg-indigo-800 rounded-full transition-colors"><X size={20}/></button>
+              <button onClick={() => setResultadoGlobal(null)} className="text-indigo-400 hover:text-white p-1.5 sm:p-2 bg-indigo-800 rounded-full transition-colors"><X size={20}/></button>
             </div>
-            <div className="p-6 overflow-y-auto bg-slate-50 flex-1">
+            <div className="p-4 sm:p-6 overflow-y-auto bg-slate-50 flex-1">
                {resultadoGlobal.length === 0 ? (
-                 <div className="p-12 text-center text-slate-400 font-bold border-2 border-dashed border-slate-200 rounded-2xl">
+                 <div className="p-8 sm:p-12 text-center text-slate-400 font-bold border-2 border-dashed border-slate-200 rounded-2xl">
                     Nenhum documento encontrado na base de dados desta obra com este termo.
                  </div>
                ) : (
-                 <div className="space-y-6">
-                    <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-800 text-sm font-medium">
-                      Foram encontradas <strong className="font-black">{resultadoGlobal.length} alocações</strong> que correspondem a este documento. Se houver mais de uma, trata-se de um Rateio Multicontrato. A soma global abaixo representa o valor físico real da nota.
+                 <div className="space-y-4 sm:space-y-6">
+                    <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-800 text-xs sm:text-sm font-medium">
+                      Foram encontradas <strong className="font-black">{resultadoGlobal.length} alocações</strong> que correspondem a este documento. Se houver mais de uma, trata-se de um Rateio Multicontrato.
                     </div>
                     
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                       <table className="w-full text-sm text-left">
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden overflow-x-auto max-w-full">
+                       <table className="w-full text-sm text-left min-w-[700px]">
                          <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-black uppercase text-[10px]">
                            <tr>
-                             <th className="p-4">Nº Doc</th>
-                             <th className="p-4">Contrato (Centro de Custo)</th>
-                             <th className="p-4">Fornecedor</th>
-                             <th className="p-4 text-center">Status</th>
-                             <th className="p-4 text-right">Valor Rateado (R$)</th>
+                             <th className="p-4 whitespace-nowrap">Nº Doc</th>
+                             <th className="p-4 whitespace-nowrap">Contrato (Centro de Custo)</th>
+                             <th className="p-4 whitespace-nowrap">Fornecedor</th>
+                             <th className="p-4 text-center whitespace-nowrap">Status</th>
+                             <th className="p-4 text-right whitespace-nowrap">Valor Rateado (R$)</th>
                            </tr>
                          </thead>
                          <tbody className="divide-y divide-slate-100">
@@ -1517,21 +1519,21 @@ function AbaAlfandega() {
                              <tr key={rg.id} className="hover:bg-slate-50 transition-colors">
                                <td className="p-4 font-black text-slate-900">{rg.numero_documento}</td>
                                <td className="p-4">
-                                  <span className="font-bold text-slate-700">{rg.contratos.codigo_contrato}</span>
-                                  <span className="block text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">{rg.contratos.centro_custo_raiz}</span>
+                                  <span className="font-bold text-slate-700 whitespace-nowrap">{rg.contratos.codigo_contrato}</span>
+                                  <span className="block text-[10px] text-slate-400 uppercase tracking-widest mt-0.5 whitespace-nowrap">{rg.contratos.centro_custo_raiz}</span>
                                </td>
                                <td className="p-4 text-xs font-bold text-slate-600">{rg.contratos.razao_social}</td>
                                <td className="p-4 text-center">
                                   <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${rg.status_documento === 'Ativo' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{rg.status_documento}</span>
                                </td>
-                               <td className="p-4 text-right font-black text-slate-800">{formatMoney(rg.valor_bruto)}</td>
+                               <td className="p-4 text-right font-black text-slate-800 whitespace-nowrap">{formatMoney(rg.valor_bruto)}</td>
                              </tr>
                            ))}
                          </tbody>
                          <tfoot className="bg-indigo-900 text-white">
                            <tr>
-                             <td colSpan="4" className="p-4 text-right font-black uppercase text-xs tracking-widest text-indigo-300">Valor Bruto Físico da Nota (Soma)</td>
-                             <td className="p-4 text-right font-black text-lg text-white">
+                             <td colSpan="4" className="p-4 text-right font-black uppercase text-[10px] sm:text-xs tracking-widest text-indigo-300">Valor Bruto Físico da Nota (Soma)</td>
+                             <td className="p-4 text-right font-black text-base sm:text-lg text-white whitespace-nowrap">
                                 {formatMoney(resultadoGlobal.reduce((acc, curr) => acc + (curr.status_documento === 'Ativo' ? Number(curr.valor_bruto) : 0), 0))}
                              </td>
                            </tr>
@@ -1547,74 +1549,72 @@ function AbaAlfandega() {
 
       {/* MODAL RAIO-X DA NOTA FISCAL */}
       {selectedNF && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-900 text-white shrink-0">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[95vh] sm:max-h-[90vh]">
+            <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center bg-slate-900 text-white shrink-0">
               <div>
-                <h3 className="font-black text-xl flex items-center gap-2"><ScanSearch size={22} className="text-blue-400"/> Raio-X Documental</h3>
-                <p className="text-xs text-slate-400 font-bold tracking-wide mt-1">Nota/Doc: {selectedNF.numero_documento} • {selectedNF.tipo_documento}</p>
+                <h3 className="font-black text-base sm:text-xl flex items-center gap-2"><ScanSearch size={20} className="text-blue-400"/> Raio-X Documental</h3>
+                <p className="text-[10px] sm:text-xs text-slate-400 font-bold tracking-wide mt-1">Nota/Doc: {selectedNF.numero_documento} • {selectedNF.tipo_documento}</p>
               </div>
-              <button onClick={() => setSelectedNF(null)} className="text-slate-400 hover:text-white p-2 bg-slate-800 rounded-full transition-colors"><X size={20}/></button>
+              <button onClick={() => setSelectedNF(null)} className="text-slate-400 hover:text-white p-1.5 sm:p-2 bg-slate-800 rounded-full transition-colors"><X size={20}/></button>
             </div>
             
-            <div className="p-8 overflow-y-auto bg-slate-50 space-y-6">
+            <div className="p-4 sm:p-8 overflow-y-auto bg-slate-50 space-y-4 sm:space-y-6">
               
-              {/* ALERTA DE ROMANEIO (TRAVA DE FERRO) */}
               {selectedNF.lote_pagamento_id && (
-                <div className="bg-emerald-100 border border-emerald-300 text-emerald-800 p-4 rounded-2xl flex items-center gap-3 shadow-sm">
-                  <FolderLock size={24} className="shrink-0" />
+                <div className="bg-emerald-100 border border-emerald-300 text-emerald-800 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-3 shadow-sm">
+                  <FolderLock size={24} className="shrink-0 hidden sm:block" />
                   <div>
-                    <h4 className="font-black text-sm uppercase tracking-wider">Documento Trancado em Romaneio</h4>
-                    <p className="text-xs font-medium mt-0.5">Esta nota foi despachada para o financeiro no lote <strong className="font-black">{selectedNF.lotes_pagamento?.codigo_lote}</strong>.</p>
+                    <h4 className="font-black text-xs sm:text-sm uppercase tracking-wider">Documento Trancado em Romaneio</h4>
+                    <p className="text-[10px] sm:text-xs font-medium mt-0.5">Esta nota foi despachada para o financeiro no lote <strong className="font-black">{selectedNF.lotes_pagamento?.codigo_lote}</strong>.</p>
                   </div>
                 </div>
               )}
 
-              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Fornecedor / Emitente</p>
-                <p className="text-lg font-black text-slate-800 leading-tight">{selectedNF.contratos.razao_social}</p>
-                <p className="text-xs text-slate-500 font-bold mt-1">Ref. Contrato: {selectedNF.contratos.codigo_contrato}</p>
+              <div className="bg-white p-4 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200">
+                <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase mb-1">Fornecedor / Emitente</p>
+                <p className="text-base sm:text-lg font-black text-slate-800 leading-tight">{selectedNF.contratos.razao_social}</p>
+                <p className="text-[10px] sm:text-xs text-slate-500 font-bold mt-1">Ref. Contrato: {selectedNF.contratos.codigo_contrato}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200"><p className="text-[10px] font-black text-slate-400 uppercase mb-1">Data de Emissão</p><p className="text-base font-black text-slate-700">{formatDate(selectedNF.data_emissao)}</p></div>
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200"><p className="text-[10px] font-black text-slate-400 uppercase mb-1">Data de Vencimento</p><p className="text-base font-black text-slate-700">{formatDate(selectedNF.data_vencimento)}</p></div>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="bg-white p-4 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200"><p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase mb-1">Data Emissão</p><p className="text-sm sm:text-base font-black text-slate-700">{formatDate(selectedNF.data_emissao)}</p></div>
+                <div className="bg-white p-4 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200"><p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase mb-1">Data Vencimento</p><p className="text-sm sm:text-base font-black text-slate-700">{formatDate(selectedNF.data_vencimento)}</p></div>
               </div>
 
-              <div className="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800 text-white">
-                 <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-3 mb-4">Memória de Cálculo (Pagar)</h4>
-                 <div className="space-y-3 mb-6">
-                   <div className="flex justify-between items-center"><span className="text-sm font-bold text-slate-300">Valor Bruto do Documento</span><span className="text-base font-black text-white">{formatMoney(selectedNF.valor_bruto)}</span></div>
-                   {Number(selectedNF.impostos_destacados) > 0 && <div className="flex justify-between items-center"><span className="text-sm font-medium text-slate-400">(-) Impostos Retidos</span><span className="text-sm font-black text-rose-400">{formatMoney(selectedNF.impostos_destacados)}</span></div>}
-                   {Number(selectedNF.valor_retencao_tecnica) > 0 && <div className="flex justify-between items-center"><span className="text-sm font-medium text-slate-400">(-) Retenção Cativa</span><span className="text-sm font-black text-rose-400">{formatMoney(selectedNF.valor_retencao_tecnica)}</span></div>}
-                   {Number(selectedNF.valor_amortizado_adiantamento) > 0 && <div className="flex justify-between items-center"><span className="text-sm font-medium text-slate-400">(-) Amortização de Caixa</span><span className="text-sm font-black text-rose-400">{formatMoney(selectedNF.valor_amortizado_adiantamento)}</span></div>}
-                   {Number(selectedNF.juros_multas) > 0 && <div className="flex justify-between items-center"><span className="text-sm font-medium text-slate-400">(+) Juros / Acréscimos</span><span className="text-sm font-black text-emerald-400">{formatMoney(selectedNF.juros_multas)}</span></div>}
+              <div className="bg-slate-900 p-4 sm:p-6 rounded-xl sm:rounded-2xl shadow-xl border border-slate-800 text-white">
+                 <h4 className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-3 mb-4">Memória de Cálculo (Pagar)</h4>
+                 <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
+                   <div className="flex justify-between items-center"><span className="text-xs sm:text-sm font-bold text-slate-300">Valor Bruto</span><span className="text-sm sm:text-base font-black text-white">{formatMoney(selectedNF.valor_bruto)}</span></div>
+                   {Number(selectedNF.impostos_destacados) > 0 && <div className="flex justify-between items-center"><span className="text-[10px] sm:text-sm font-medium text-slate-400">(-) Impostos</span><span className="text-[10px] sm:text-sm font-black text-rose-400">{formatMoney(selectedNF.impostos_destacados)}</span></div>}
+                   {Number(selectedNF.valor_retencao_tecnica) > 0 && <div className="flex justify-between items-center"><span className="text-[10px] sm:text-sm font-medium text-slate-400">(-) Retenção Cativa</span><span className="text-[10px] sm:text-sm font-black text-rose-400">{formatMoney(selectedNF.valor_retencao_tecnica)}</span></div>}
+                   {Number(selectedNF.valor_amortizado_adiantamento) > 0 && <div className="flex justify-between items-center"><span className="text-[10px] sm:text-sm font-medium text-slate-400">(-) Amortização</span><span className="text-[10px] sm:text-sm font-black text-rose-400">{formatMoney(selectedNF.valor_amortizado_adiantamento)}</span></div>}
+                   {Number(selectedNF.juros_multas) > 0 && <div className="flex justify-between items-center"><span className="text-[10px] sm:text-sm font-medium text-slate-400">(+) Juros / Multas</span><span className="text-[10px] sm:text-sm font-black text-emerald-400">{formatMoney(selectedNF.juros_multas)}</span></div>}
                  </div>
                  
-                 <div className="pt-4 border-t border-slate-700 flex justify-between items-center">
-                   <div><p className="text-[10px] font-black uppercase text-slate-400">Líquido a Pagar</p><p className="text-xs font-bold text-slate-500 mt-0.5">{selectedNF.conta_corrente || 'Padrão Cadastral'}</p></div>
+                 <div className="pt-3 sm:pt-4 border-t border-slate-700 flex justify-between items-center">
+                   <div><p className="text-[9px] sm:text-[10px] font-black uppercase text-slate-400">Líquido a Pagar</p><p className="text-[10px] sm:text-xs font-bold text-slate-500 mt-0.5">{selectedNF.conta_corrente || 'Padrão Cadastral'}</p></div>
                    {(() => {
                       let liquido = Number(selectedNF.valor_bruto) - Number(selectedNF.impostos_destacados || 0) - Number(selectedNF.valor_retencao_tecnica || 0) - Number(selectedNF.valor_amortizado_adiantamento || 0) + Number(selectedNF.juros_multas || 0);
-                      return <p className="text-3xl font-black text-emerald-400">{formatMoney(liquido)}</p>;
+                      return <p className="text-xl sm:text-3xl font-black text-emerald-400">{formatMoney(liquido)}</p>;
                    })()}
                  </div>
               </div>
 
-              <div className="flex justify-between items-center px-2">
-                 <span className="text-xs font-bold text-slate-400">Alocação Fiscal: <strong className="text-slate-700">{selectedNF.classificacao_faturamento}</strong></span>
-                 <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${['Cancelado','Anulado'].includes(selectedNF.status_documento) ? 'bg-rose-100 text-rose-800' : (selectedNF.status_documento === 'Substituido' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800')}`}>{selectedNF.status_documento} • {selectedNF.status_aprovacao}</span>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-2 gap-2 sm:gap-0">
+                 <span className="text-[10px] sm:text-xs font-bold text-slate-400">Alocação Fiscal: <strong className="text-slate-700">{selectedNF.classificacao_faturamento}</strong></span>
+                 <span className={`text-[9px] sm:text-[10px] font-black uppercase px-3 py-1 rounded-full ${['Cancelado','Anulado'].includes(selectedNF.status_documento) ? 'bg-rose-100 text-rose-800' : (selectedNF.status_documento === 'Substituido' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800')}`}>{selectedNF.status_documento} • {selectedNF.status_aprovacao}</span>
               </div>
 
-              {/* BLOCO DE AUDITORIA */}
               {selectedNF.historico_edicoes && selectedNF.historico_edicoes.length > 0 && (
-                <div className="bg-slate-100 p-5 rounded-2xl border border-slate-200 mt-4">
-                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-4"><History size={14}/> Trilha de Auditoria (Edições/Status)</h4>
+                <div className="bg-slate-100 p-4 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200 mt-4">
+                  <h4 className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-4"><History size={14}/> Trilha de Auditoria (Edições/Status)</h4>
                   <div className="space-y-4">
                     {selectedNF.historico_edicoes.map((ed, idx) => (
                       <div key={idx} className="border-l-2 border-slate-300 pl-3 ml-2">
-                        <p className="text-[9px] font-bold text-slate-400">{formatDateTime(ed.data)}</p>
+                        <p className="text-[8px] sm:text-[9px] font-bold text-slate-400">{formatDateTime(ed.data)}</p>
                         <ul className="mt-1 space-y-1">
-                          {ed.alteracoes.map((alt, i) => <li key={i} className="text-xs font-medium text-slate-700">• {alt}</li>)}
+                          {ed.alteracoes.map((alt, i) => <li key={i} className="text-[10px] sm:text-xs font-medium text-slate-700">• {alt}</li>)}
                         </ul>
                       </div>
                     ))}
@@ -1626,82 +1626,82 @@ function AbaAlfandega() {
         </div>
       )}
 
-      <header className="mb-4 flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <header className="mb-4 sm:mb-6 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Alfândega de Faturas</h2>
-          <p className="text-slate-500">Ponto de checagem. Nenhum fluxo de caixa passa sem lastro de engenharia.</p>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Alfândega de Faturas</h2>
+          <p className="text-sm sm:text-base text-slate-500">Ponto de checagem. Nenhum fluxo de caixa passa sem lastro.</p>
         </div>
         
         {/* O BUSCADOR GLOBAL NO TOPO DA ALFÂNDEGA */}
-        <form onSubmit={handlePesquisaGlobal} className="w-full md:w-96 relative flex items-center">
-           <input required type="text" placeholder="Buscar Nº Documento ou CNPJ na Obra inteira..." className="w-full pl-10 pr-24 py-3 bg-white shadow-sm border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none" value={pesquisaGlobalTerm} onChange={e => setPesquisaGlobalTerm(e.target.value)} disabled={!selectedObraId} />
-           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Search size={14} className="text-indigo-400"/></div>
-           <button type="submit" disabled={!selectedObraId || isPesquisandoGlobal} className="absolute inset-y-1 right-1 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1">
+        <form onSubmit={handlePesquisaGlobal} className="w-full lg:w-[400px] relative flex items-center">
+           <input required type="text" placeholder="Buscar Nº Doc. ou CNPJ na Obra..." className="w-full pl-10 pr-20 sm:pr-24 py-2.5 sm:py-3 bg-white shadow-sm border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none" value={pesquisaGlobalTerm} onChange={e => setPesquisaGlobalTerm(e.target.value)} disabled={!selectedObraId} />
+           <div className="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none"><Search size={14} className="text-indigo-400"/></div>
+           <button type="submit" disabled={!selectedObraId || isPesquisandoGlobal} className="absolute inset-y-1 right-1 bg-indigo-600 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 sm:px-3 py-1 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1">
              {isPesquisandoGlobal ? '...' : 'Radar'}
            </button>
         </form>
       </header>
 
       {/* FILTROS GLOBAIS DE INSERÇÃO */}
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <div>
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">1. Empresa Investidora</label>
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">1. Investidor</label>
           <select className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none" value={selectedEmpresaId} onChange={e => setSelectedEmpresaId(e.target.value)}><option value="">-- Selecionar --</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.razao_social}</option>)}</select>
         </div>
-        <div>
+        <div className={`${!selectedEmpresaId ? 'opacity-50 pointer-events-none' : ''}`}>
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">2. Obra</label>
-          <select disabled={!selectedEmpresaId} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none disabled:opacity-50" value={selectedObraId} onChange={e => setSelectedObraId(e.target.value)}><option value="">-- Selecionar --</option>{obras.map(o => <option key={o.id} value={o.id}>{o.codigo_obra}</option>)}</select>
+          <select className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none" value={selectedObraId} onChange={e => setSelectedObraId(e.target.value)}><option value="">-- Selecionar --</option>{obras.map(o => <option key={o.id} value={o.id}>{o.codigo_obra}</option>)}</select>
         </div>
-        <div>
-          <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5 block">3. Contrato Alvo (Para Lançamento)</label>
-          <select disabled={!selectedObraId} className="w-full p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-black text-emerald-800 disabled:opacity-50" value={selectedContratoId} onChange={e => setSelectedContratoId(e.target.value)}><option value="">-- Selecionar Contrato --</option>{contratos.map(c => <option key={c.id} value={c.id}>{c.codigo_contrato}</option>)}</select>
+        <div className={`sm:col-span-2 md:col-span-1 ${!selectedObraId ? 'opacity-50 pointer-events-none' : ''}`}>
+          <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5 block">3. Contrato Alvo (Lançamento)</label>
+          <select className="w-full p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-black text-emerald-800" value={selectedContratoId} onChange={e => setSelectedContratoId(e.target.value)}><option value="">-- Selecionar Contrato --</option>{contratos.map(c => <option key={c.id} value={c.id}>{c.codigo_contrato}</option>)}</select>
         </div>
       </div>
 
-      <div className={`flex flex-col gap-8 ${!selectedContratoId ? 'opacity-30 pointer-events-none blur-sm' : ''} transition-all duration-500`}>
+      <div className={`flex flex-col gap-6 sm:gap-8 ${!selectedContratoId ? 'opacity-30 pointer-events-none blur-[2px]' : ''} transition-all duration-500`}>
         
-        {/* LADO SUPERIOR: FORMULÁRIO DE ENTRADA PANORÂMICO */}
-        <div className="w-full bg-white p-6 rounded-3xl shadow-xl border-t-4 border-t-rose-600 border-x border-b border-slate-200">
-          <form onSubmit={handleSubmitNF} className="space-y-5 h-full flex flex-col relative">
+        {/* FORMULÁRIO DE ENTRADA PANORÂMICO */}
+        <div className="w-full bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl border-t-4 border-t-rose-600 border-x border-b border-slate-200">
+          <form onSubmit={handleSubmitNF} className="space-y-4 sm:space-y-5 h-full flex flex-col relative">
             
             {isEditingNF && (
-              <div className="absolute -top-10 left-0 bg-amber-400 text-amber-900 text-[10px] font-black uppercase px-4 py-2 rounded-full flex items-center gap-2 shadow-md animate-bounce z-10">
+              <div className="absolute -top-8 sm:-top-10 left-0 bg-amber-400 text-amber-900 text-[9px] sm:text-[10px] font-black uppercase px-3 sm:px-4 py-1.5 sm:py-2 rounded-full flex items-center gap-2 shadow-md animate-bounce z-10">
                 Editando Nota <button type="button" onClick={cancelEdit} className="hover:bg-amber-500 p-1 rounded-full"><X size={14}/></button>
               </div>
             )}
 
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-2">Vínculo de Engenharia (Natureza da Operação)</label>
+              <label className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase ml-1 block mb-2">Vínculo de Engenharia (Natureza)</label>
               <div className="flex flex-wrap gap-2 mb-2">
                 {['Serviço', 'Material', 'Pagamento de Retenção'].map(tipo => (
-                  <button key={tipo} type="button" disabled={isEditingNF} onClick={() => setNaturezaOp(tipo)} className={`px-4 py-2.5 text-[11px] font-bold rounded-xl border transition-colors ${naturezaOp === tipo ? 'bg-rose-600 text-white border-rose-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 disabled:opacity-50'}`}>
+                  <button key={tipo} type="button" disabled={isEditingNF} onClick={() => setNaturezaOp(tipo)} className={`px-3 sm:px-4 py-2 sm:py-2.5 text-[10px] sm:text-[11px] font-bold rounded-xl border transition-colors ${naturezaOp === tipo ? 'bg-rose-600 text-white border-rose-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 disabled:opacity-50'}`}>
                     {tipo}
                   </button>
                 ))}
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <div className="md:col-span-1 lg:col-span-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Documento Base</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
+              <div className="sm:col-span-2 lg:col-span-2">
+                <label className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Documento Base</label>
                 {(() => {
                   const isIndependente = ['Liberação Retenção', 'Nota de Débito', 'DACTE', 'Fatura', 'Recibo Adiantamento'].includes(formNF.tipo_documento) || naturezaOp === 'Pagamento de Retenção';
                   
                   if (isIndependente) {
-                    return <div className="p-2.5 border border-dashed border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-black rounded-lg flex items-center justify-center uppercase tracking-wider h-[42px]">Documento Independente</div>;
+                    return <div className="p-2 sm:p-2.5 border border-dashed border-rose-200 bg-rose-50 text-rose-700 text-[9px] sm:text-[10px] font-black rounded-lg flex items-center justify-center uppercase tracking-wider h-[38px] sm:h-[42px]">Documento Independente</div>;
                   }
                   if (naturezaOp === 'Serviço') {
-                    return <select required className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 outline-none" value={formNF.medicao_id} onChange={e => setFormNF({...formNF, medicao_id: e.target.value})}><option value="">Selecione a Medição</option>{medicoes.map(m => <option key={m.id} value={m.id}>{m.codigo_medicao} (Teto: {formatMoney(m.valor_bruto_medido)})</option>)}</select>;
+                    return <select required className="w-full p-2 sm:p-2.5 border border-slate-300 rounded-lg text-xs sm:text-sm font-bold text-slate-700 outline-none" value={formNF.medicao_id} onChange={e => setFormNF({...formNF, medicao_id: e.target.value})}><option value="">Selecione a Medição</option>{medicoes.map(m => <option key={m.id} value={m.id}>{m.codigo_medicao} ({formatMoney(m.valor_bruto_medido)})</option>)}</select>;
                   }
                   if (naturezaOp === 'Material') {
-                    return <select required className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 outline-none" value={formNF.pedido_id} onChange={e => setFormNF({...formNF, pedido_id: e.target.value})}><option value="">Selecione o Pedido</option>{pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido} (Teto: {formatMoney(p.valor_total_aprovado)})</option>)}</select>;
+                    return <select required className="w-full p-2 sm:p-2.5 border border-slate-300 rounded-lg text-xs sm:text-sm font-bold text-slate-700 outline-none" value={formNF.pedido_id} onChange={e => setFormNF({...formNF, pedido_id: e.target.value})}><option value="">Selecione o Pedido</option>{pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido} ({formatMoney(p.valor_total_aprovado)})</option>)}</select>;
                   }
                 })()}
               </div>
 
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Tipo de Documento Fiscal</label>
-                <select required className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 outline-none" value={formNF.tipo_documento} onChange={e => setFormNF({...formNF, tipo_documento: e.target.value})}>
+                <label className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Tipo de Documento</label>
+                <select required className="w-full p-2 sm:p-2.5 border border-slate-300 rounded-lg text-xs sm:text-sm font-bold text-slate-700 outline-none" value={formNF.tipo_documento} onChange={e => setFormNF({...formNF, tipo_documento: e.target.value})}>
                    <option value="Nota Fiscal">Nota Fiscal</option>
                    <option value="Nota de Débito">Nota de Débito</option>
                    <option value="DACTE">DACTE</option>
@@ -1712,127 +1712,126 @@ function AbaAlfandega() {
               </div>
               
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Alocação Fiscal</label>
-                <select required className="w-full p-2.5 border border-indigo-200 bg-indigo-50 text-indigo-900 font-bold rounded-lg text-sm outline-none" value={formNF.classificacao_faturamento} onChange={e => setFormNF({...formNF, classificacao_faturamento: e.target.value})}>
-                   <option value="Direto">Fat. Direto (Inquilino)</option>
-                   <option value="Indireto">Fat. Indireto (Construtora)</option>
+                <label className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Alocação Fiscal</label>
+                <select required className="w-full p-2 sm:p-2.5 border border-indigo-200 bg-indigo-50 text-indigo-900 font-bold rounded-lg text-xs sm:text-sm outline-none" value={formNF.classificacao_faturamento} onChange={e => setFormNF({...formNF, classificacao_faturamento: e.target.value})}>
+                   <option value="Direto">Direto (Inquilino)</option>
+                   <option value="Indireto">Indireto (Const.)</option>
                 </select>
               </div>
 
-              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data Emissão</label><input required type="date" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-600 outline-none focus:border-rose-400" value={formNF.data_emissao} onChange={e => setFormNF({...formNF, data_emissao: e.target.value})} /></div>
-              <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data Vencimento</label><input required type="date" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-600 outline-none focus:border-rose-400" value={formNF.data_vencimento} onChange={e => setFormNF({...formNF, data_vencimento: e.target.value})} /></div>
+              <div><label className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data Emissão</label><input required type="date" className="w-full p-2 sm:p-2.5 border border-slate-300 rounded-lg text-xs sm:text-sm font-bold text-slate-600 outline-none focus:border-rose-400" value={formNF.data_emissao} onChange={e => setFormNF({...formNF, data_emissao: e.target.value})} /></div>
+              <div><label className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data Vencimento</label><input required type="date" className="w-full p-2 sm:p-2.5 border border-slate-300 rounded-lg text-xs sm:text-sm font-bold text-slate-600 outline-none focus:border-rose-400" value={formNF.data_vencimento} onChange={e => setFormNF({...formNF, data_vencimento: e.target.value})} /></div>
               
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-6 gap-4 items-end">
+            <div className="grid grid-cols-1 lg:grid-cols-6 gap-3 sm:gap-4 items-end">
                 <div className="lg:col-span-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Nº do Documento</label>
-                    <input required placeholder="Ex: 12345" className="w-full p-3 mb-4 border border-slate-300 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-rose-400" value={formNF.numero_documento} onChange={e => setFormNF({...formNF, numero_documento: e.target.value})} />
+                    <label className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Nº do Documento</label>
+                    <input required placeholder="Ex: 12345" className="w-full p-2.5 sm:p-3 mb-3 sm:mb-4 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 outline-none focus:border-rose-400" value={formNF.numero_documento} onChange={e => setFormNF({...formNF, numero_documento: e.target.value})} />
 
-                    <label className="text-[10px] font-black text-rose-600 uppercase ml-1 block mb-1">{naturezaOp === 'Pagamento de Retenção' ? 'Valor a Devolver' : 'Valor Bruto Total'}</label>
-                    <CurrencyInput required placeholder="R$ 0,00" className="w-full p-3 border border-rose-300 rounded-xl text-lg font-black text-rose-900 bg-rose-50 outline-none focus:ring-2 focus:ring-rose-500" value={formNF.valor_bruto} onChange={val => setFormNF({...formNF, valor_bruto: val})} />
+                    <label className="text-[9px] sm:text-[10px] font-black text-rose-600 uppercase ml-1 block mb-1">{formNF.tipo_documento === 'Liberação Retenção' ? 'Valor a Devolver' : 'Valor Bruto Total'}</label>
+                    <CurrencyInput required placeholder="R$ 0,00" className="w-full p-2.5 sm:p-3 border border-rose-300 rounded-xl text-base sm:text-lg font-black text-rose-900 bg-rose-50 outline-none focus:ring-2 focus:ring-rose-500" value={formNF.valor_bruto} onChange={val => setFormNF({...formNF, valor_bruto: val})} />
                 </div>
                 
-                <div className="lg:col-span-4 border border-slate-100 p-3 rounded-xl bg-slate-50 grid grid-cols-2 md:grid-cols-5 gap-3">
-                    <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Impostos (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-slate-700 outline-none" value={formNF.impostos_destacados} onChange={val => setFormNF({...formNF, impostos_destacados: val})} /></div>
-                    <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Retenção Cativa (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-rose-700 outline-none" value={formNF.valor_retencao_tecnica} onChange={val => setFormNF({...formNF, valor_retencao_tecnica: val})} /></div>
-                    <div><label className="text-[9px] font-black text-amber-500 uppercase ml-1 block mb-1">Amortiza Adiant. (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-amber-300 bg-amber-50 rounded-md text-xs font-bold text-amber-800 outline-none" value={formNF.valor_amortizado_adiantamento} onChange={val => setFormNF({...formNF, valor_amortizado_adiantamento: val})} /></div>
-                    <div><label className="text-[9px] font-black text-emerald-600 uppercase ml-1 block mb-1">Juros (+)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-emerald-300 bg-emerald-50 rounded-md text-xs font-bold text-emerald-800 outline-none" value={formNF.juros_multas} onChange={val => setFormNF({...formNF, juros_multas: val})} /></div>
-                    <div><label className="text-[9px] font-black text-slate-500 uppercase ml-1 block mb-1">Forma Pagto / Conta</label><input placeholder="Ex: Bradesco" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-slate-700 outline-none" value={formNF.forma_pagamento} onChange={e => setFormNF({...formNF, forma_pagamento: e.target.value})} /></div>
+                <div className="lg:col-span-4 border border-slate-100 p-3 rounded-xl bg-slate-50 grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3">
+                    <div><label className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Impostos (-)</label><CurrencyInput placeholder="0,00" className="w-full p-1.5 sm:p-2 border border-slate-300 rounded-md text-xs font-bold text-slate-700 outline-none" value={formNF.impostos_destacados} onChange={val => setFormNF({...formNF, impostos_destacados: val})} /></div>
+                    <div><label className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Retenção Cativa (-)</label><CurrencyInput placeholder="0,00" className="w-full p-1.5 sm:p-2 border border-slate-300 rounded-md text-xs font-bold text-rose-700 outline-none" value={formNF.valor_retencao_tecnica} onChange={val => setFormNF({...formNF, valor_retencao_tecnica: val})} /></div>
+                    <div><label className="text-[8px] sm:text-[9px] font-black text-amber-500 uppercase ml-1 block mb-1">Amortiza Adiant. (-)</label><CurrencyInput placeholder="0,00" className="w-full p-1.5 sm:p-2 border border-amber-300 bg-amber-50 rounded-md text-xs font-bold text-amber-800 outline-none" value={formNF.valor_amortizado_adiantamento} onChange={val => setFormNF({...formNF, valor_amortizado_adiantamento: val})} /></div>
+                    <div><label className="text-[8px] sm:text-[9px] font-black text-emerald-600 uppercase ml-1 block mb-1">Juros (+)</label><CurrencyInput placeholder="0,00" className="w-full p-1.5 sm:p-2 border border-emerald-300 bg-emerald-50 rounded-md text-xs font-bold text-emerald-800 outline-none" value={formNF.juros_multas} onChange={val => setFormNF({...formNF, juros_multas: val})} /></div>
+                    <div className="col-span-2 md:col-span-1"><label className="text-[8px] sm:text-[9px] font-black text-slate-500 uppercase ml-1 block mb-1">Conta Pgto</label><input placeholder="Ex: Bradesco" className="w-full p-1.5 sm:p-2 border border-slate-300 rounded-md text-xs font-bold text-slate-700 outline-none" value={formNF.forma_pagamento} onChange={e => setFormNF({...formNF, forma_pagamento: e.target.value})} /></div>
                 </div>
             </div>
 
             <div className="mt-2 flex justify-end">
-              <button type="submit" className={`w-full md:w-auto md:px-12 text-white p-4 rounded-xl text-sm font-black uppercase tracking-widest transition-colors flex justify-center items-center gap-2 shadow-xl ${isEditingNF ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-900 hover:bg-rose-700'}`}>
-                {isEditingNF ? <><Pencil size={20}/> Gravar Edição com Auditoria</> : <><ShieldCheck size={20}/> Reter na Alfândega</>}
+              <button type="submit" className={`w-full md:w-auto md:px-12 text-white p-3 sm:p-4 rounded-xl text-xs sm:text-sm font-black uppercase tracking-widest transition-colors flex justify-center items-center gap-2 shadow-xl ${isEditingNF ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-900 hover:bg-rose-700'}`}>
+                {isEditingNF ? <><Pencil size={18}/> Gravar Edição com Auditoria</> : <><ShieldCheck size={18}/> Reter na Alfândega</>}
               </button>
             </div>
           </form>
         </div>
 
-        {/* LADO INFERIOR: HISTÓRICO COM BUSCA E RAIO-X E AÇÕES PANORÂMICO */}
-        <div className="w-full bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col">
-           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-             <h3 className="font-black text-slate-800 text-lg flex items-center gap-2"><Database size={20} className="text-blue-500"/> Histórico do Contrato Alvo</h3>
-             
+        {/* LADO INFERIOR: HISTÓRICO PANORÂMICO */}
+        <div className="w-full bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200 flex flex-col">
+           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 sm:mb-6">
+             <h3 className="font-black text-slate-800 text-base sm:text-lg flex items-center gap-2"><Database size={18} className="text-blue-500"/> Histórico do Contrato Alvo</h3>
              <div className="relative w-full sm:w-72">
                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search size={14} className="text-slate-400"/></div>
                <input type="text" placeholder="Filtrar nesta lista..." className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none" value={buscaNF} onChange={e => setBuscaNF(e.target.value)} />
              </div>
            </div>
 
-           <div className="flex-1 space-y-3 overflow-y-auto pr-2 custom-scrollbar">
+           <div className="flex-1 space-y-2 sm:space-y-3 overflow-y-auto pr-1 sm:pr-2 custom-scrollbar">
              {notasFiltradas.length === 0 ? (
-               <div className="p-10 text-center text-slate-400 border-2 border-dashed border-slate-100 rounded-2xl">
+               <div className="p-8 sm:p-10 text-center text-slate-400 text-sm border-2 border-dashed border-slate-100 rounded-xl sm:rounded-2xl">
                  Nenhum documento encontrado neste contrato.
                </div>
              ) : (
                notasFiltradas.map(nf => {
                  const isEditada = nf.historico_edicoes && nf.historico_edicoes.length > 0;
                  return (
-                   <div key={nf.id} className={`p-4 border rounded-2xl flex justify-between items-center transition-colors hover:shadow-md ${['Cancelado', 'Anulado'].includes(nf.status_documento) ? 'bg-rose-50/30 border-rose-100 opacity-60 grayscale' : (nf.status_documento === 'Substituido' ? 'bg-blue-50/30 border-blue-100 opacity-80' : (nf.natureza_operacao === 'Pagamento de Retenção' ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200'))}`}>
-                     <div className="flex-1 min-w-0 pr-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                   <div key={nf.id} className={`p-3 sm:p-4 border rounded-xl sm:rounded-2xl flex flex-col md:flex-row md:justify-between md:items-center transition-colors hover:shadow-md gap-4 md:gap-0 ${['Cancelado', 'Anulado'].includes(nf.status_documento) ? 'bg-rose-50/30 border-rose-100 opacity-60 grayscale' : (nf.status_documento === 'Substituido' ? 'bg-blue-50/30 border-blue-100 opacity-80' : (nf.natureza_operacao === 'Pagamento de Retenção' ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200'))}`}>
+                     <div className="flex-1 min-w-0 pr-0 md:pr-4 flex flex-col sm:flex-row sm:items-start md:items-center gap-2 sm:gap-4">
                        
-                       <div className="w-full sm:w-1/4 shrink-0">
-                         <div className="flex items-center gap-2 mb-1">
-                           <span className={`font-black text-base leading-none ${['Cancelado','Anulado'].includes(nf.status_documento) ? 'line-through text-slate-400' : 'text-slate-800'}`}>Doc {nf.numero_documento}</span>
-                           {nf.status_documento === 'Anulado' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-800 text-white flex items-center gap-1"><AlertOctagon size={10}/> Anulada (Erro)</span>}
-                           {nf.status_documento === 'Cancelado' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 flex items-center gap-1">Cancelada</span>}
-                           {nf.status_documento === 'Substituido' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Substituída</span>}
-                           {nf.status_documento === 'Ativo' && isEditada && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Editada</span>}
-                           {nf.status_documento === 'Ativo' && <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${nf.status_aprovacao === 'Aprovado' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{nf.status_aprovacao}</span>}
+                       <div className="w-full sm:w-1/3 shrink-0">
+                         <div className="flex items-center flex-wrap gap-2 mb-1">
+                           <span className={`font-black text-sm sm:text-base leading-none ${['Cancelado','Anulado'].includes(nf.status_documento) ? 'line-through text-slate-400' : 'text-slate-800'}`}>Doc {nf.numero_documento}</span>
+                           {nf.status_documento === 'Anulado' && <span className="text-[8px] sm:text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-800 text-white flex items-center gap-1"><AlertOctagon size={10}/> Anulada</span>}
+                           {nf.status_documento === 'Cancelado' && <span className="text-[8px] sm:text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 flex items-center gap-1">Cancelada</span>}
+                           {nf.status_documento === 'Substituido' && <span className="text-[8px] sm:text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Substituída</span>}
+                           {nf.status_documento === 'Ativo' && isEditada && <span className="text-[8px] sm:text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Editada</span>}
+                           {nf.status_documento === 'Ativo' && <span className={`text-[8px] sm:text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${nf.status_aprovacao === 'Aprovado' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{nf.status_aprovacao}</span>}
                          </div>
-                         <p className={`text-[10px] font-bold ${nf.natureza_operacao === 'Pagamento de Retenção' ? 'text-emerald-600' : 'text-slate-400'}`}>{nf.tipo_documento} ({nf.natureza_operacao}) • {nf.classificacao_faturamento}</p>
+                         <p className={`text-[9px] sm:text-[10px] font-bold ${nf.natureza_operacao === 'Pagamento de Retenção' ? 'text-emerald-600' : 'text-slate-400'}`}>{nf.tipo_documento} ({nf.natureza_operacao}) • {nf.classificacao_faturamento}</p>
                        </div>
 
                        <div className="flex-1">
-                          <p className="text-xs font-bold text-slate-600 truncate mb-0.5" title={nf.contratos.razao_social}>{nf.contratos.razao_social}</p>
-                          <p className="text-[10px] text-slate-400 font-medium">Ref. Contrato: {nf.contratos.codigo_contrato}</p>
+                          <p className="text-[10px] sm:text-xs font-bold text-slate-600 truncate mb-0.5" title={nf.contratos.razao_social}>{nf.contratos.razao_social}</p>
+                          <p className="text-[9px] sm:text-[10px] text-slate-400 font-medium">Ref. Contrato: {nf.contratos.codigo_contrato}</p>
                        </div>
 
-                       <div className="flex-1 text-left sm:text-right">
-                          <p className="text-[10px] text-slate-400 font-bold mb-0.5">Emissão: {formatDate(nf.data_emissao)}</p>
-                          <p className="text-[10px] text-slate-400 font-bold">Vencimento: {formatDate(nf.data_vencimento)}</p>
+                       <div className="flex-1 text-left md:text-right flex sm:flex-col gap-3 sm:gap-0">
+                          <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold sm:mb-0.5">Emissão: {formatDate(nf.data_emissao)}</p>
+                          <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold">Vencto: {formatDate(nf.data_vencimento)}</p>
                        </div>
                      </div>
                      
-                     <div className="text-right shrink-0 flex items-center gap-3">
-                       <div className="mr-2">
-                         <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5">{nf.natureza_operacao === 'Pagamento de Retenção' ? 'Devolvido' : 'Bruto'}</p>
-                         <p className={`text-xl font-black ${['Cancelado','Anulado'].includes(nf.status_documento) ? 'text-slate-400' : (nf.natureza_operacao === 'Pagamento de Retenção' ? 'text-emerald-600' : 'text-slate-900')}`}>{formatMoney(nf.valor_bruto)}</p>
+                     <div className="text-right shrink-0 flex items-center justify-between md:justify-end gap-3 pt-3 border-t border-slate-200 md:border-t-0 md:pt-0">
+                       <div className="text-left md:text-right mr-2">
+                         <p className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase mb-0.5">{nf.natureza_operacao === 'Pagamento de Retenção' ? 'Devolvido' : 'Bruto'}</p>
+                         <p className={`text-base sm:text-xl font-black ${['Cancelado','Anulado'].includes(nf.status_documento) ? 'text-slate-400' : (nf.natureza_operacao === 'Pagamento de Retenção' ? 'text-emerald-600' : 'text-slate-900')}`}>{formatMoney(nf.valor_bruto)}</p>
                        </div>
                        
-                       <button onClick={() => setSelectedNF(nf)} className="p-2.5 bg-white border border-slate-200 text-slate-500 rounded-xl hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-sm" title="Raio-X da Nota">
-                         <Eye size={16} />
-                       </button>
+                       <div className="flex items-center gap-1.5 sm:gap-3">
+                         <button onClick={() => setSelectedNF(nf)} className="p-2 sm:p-2.5 bg-white border border-slate-200 text-slate-500 rounded-lg sm:rounded-xl hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-sm" title="Raio-X da Nota">
+                           <Eye size={16} className="sm:w-4 sm:h-4"/>
+                         </button>
 
-                       {/* MENU DE AÇÕES (EDITAR / APAGAR) */}
-                       {nf.status_documento === 'Ativo' && (
-                         <div className="flex flex-col gap-1 relative">
-                           <button onClick={() => handleEditNFClick(nf)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar Nota">
-                             <Pencil size={14} />
-                           </button>
-                           <button onClick={() => setActionMenuOpen(actionMenuOpen === nf.id ? null : nf.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Opções de Exclusão">
-                             <Trash2 size={14} />
-                           </button>
-                           
-                           {/* DROPDOWN DE EXCLUSÃO */}
-                           {actionMenuOpen === nf.id && (
-                             <div className="absolute right-8 top-8 w-56 bg-white border border-slate-200 shadow-2xl rounded-xl z-10 p-2 animate-in fade-in zoom-in-95">
-                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Decisão Fiscal</p>
-                               <button onClick={() => handleDeleteAcao(nf, 'ANULAR')} className="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2">
-                                 Anular (Erro) <FileWarning size={12}/>
-                               </button>
-                               <button onClick={() => handleDeleteAcao(nf, 'CANCELAR')} className="w-full text-left px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
-                                 Cancelar Lançamento
-                               </button>
-                               <button onClick={() => handleDeleteAcao(nf, 'SUBSTITUIR')} className="w-full text-left px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                                 Substituir Nota
-                               </button>
-                             </div>
-                           )}
-                         </div>
-                       )}
+                         {nf.status_documento === 'Ativo' && (
+                           <div className="flex items-center md:flex-col gap-1 relative">
+                             <button onClick={() => handleEditNFClick(nf)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar Nota">
+                               <Pencil size={14} className="sm:w-3.5 sm:h-3.5"/>
+                             </button>
+                             <button onClick={() => setActionMenuOpen(actionMenuOpen === nf.id ? null : nf.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Opções de Exclusão">
+                               <Trash2 size={14} className="sm:w-3.5 sm:h-3.5"/>
+                             </button>
+                             
+                             {actionMenuOpen === nf.id && (
+                               <div className="absolute right-8 top-0 md:top-8 w-48 sm:w-56 bg-white border border-slate-200 shadow-2xl rounded-xl z-20 p-2 animate-in fade-in zoom-in-95">
+                                 <p className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Decisão Fiscal</p>
+                                 <button onClick={() => handleDeleteAcao(nf, 'ANULAR')} className="w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold text-slate-800 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2">
+                                   Anular (Erro) <FileWarning size={12}/>
+                                 </button>
+                                 <button onClick={() => handleDeleteAcao(nf, 'CANCELAR')} className="w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                   Cancelar Lançamento
+                                 </button>
+                                 <button onClick={() => handleDeleteAcao(nf, 'SUBSTITUIR')} className="w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                   Substituir Nota
+                                 </button>
+                               </div>
+                             )}
+                           </div>
+                         )}
+                       </div>
                      </div>
                    </div>
                  );
@@ -1933,29 +1932,42 @@ function AbaLotes() {
   const valorTotalSelecionado = notasPendentes.filter(n => selecionadas.includes(n.id)).reduce((acc, n) => acc + Number(n.valor_bruto), 0);
 
   return (
-    <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-8">
-      <header><h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3"><FolderLock className="text-blue-600" size={32} /> Lotes & Romaneios</h2></header>
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex gap-4">
-        <select className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" value={selectedEmpresaId} onChange={e => setSelectedEmpresaId(e.target.value)}><option value="">1. Empresa Investidora</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.razao_social}</option>)}</select>
-        <select disabled={!selectedEmpresaId} className="flex-1 p-3 bg-blue-50 border border-blue-200 rounded-xl font-black text-blue-800" value={selectedObraId} onChange={e => setSelectedObraId(e.target.value)}><option value="">2. Obra (Alvo do Fechamento)</option>{obras.map(o => <option key={o.id} value={o.id}>{o.codigo_obra}</option>)}</select>
+    <div className="animate-in fade-in duration-700 max-w-7xl mx-auto space-y-8 px-2 sm:px-0">
+      <header><h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3"><FolderLock className="text-blue-600" size={28} /> Lotes & Romaneios</h2></header>
+      <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row gap-4">
+        <select className="flex-1 p-2.5 sm:p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs sm:text-sm" value={selectedEmpresaId} onChange={e => setSelectedEmpresaId(e.target.value)}><option value="">1. Empresa Investidora</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.razao_social}</option>)}</select>
+        <select disabled={!selectedEmpresaId} className="flex-1 p-2.5 sm:p-3 bg-blue-50 border border-blue-200 rounded-xl font-black text-blue-800 text-xs sm:text-sm disabled:opacity-50" value={selectedObraId} onChange={e => setSelectedObraId(e.target.value)}><option value="">2. Obra (Alvo do Fechamento)</option>{obras.map(o => <option key={o.id} value={o.id}>{o.codigo_obra}</option>)}</select>
       </div>
       <div className={`transition-all duration-500 ${!selectedObraId ? 'opacity-30 pointer-events-none blur-sm' : ''}`}>
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden mb-8">
-           <div className="p-6 bg-slate-900 text-white flex justify-between items-center"><h3 className="font-black text-lg flex items-center gap-2"><CheckSquare size={20}/> Notas Pendentes</h3></div>
-           <table className="w-full text-sm text-left"><thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-black uppercase text-[10px]"><tr><th className="p-4 w-12">SEL</th><th className="p-4">Fornecedor</th><th className="p-4">Documento</th><th className="p-4 text-right">Valor Bruto / Devolvido (R$)</th></tr></thead>
-             <tbody className="divide-y divide-slate-100">{notasPendentes.map(n => (<tr key={n.id} onClick={() => toggleNota(n.id)} className={`cursor-pointer ${selecionadas.includes(n.id) ? 'bg-blue-50' : 'hover:bg-slate-50'}`}><td className="p-4"><input type="checkbox" checked={selecionadas.includes(n.id)} readOnly className="w-5 h-5"/></td><td className="p-4 font-black">{n.contratos.razao_social}</td><td className="p-4">Doc {n.numero_documento} <span className="block text-[9px] text-slate-400">{n.tipo_documento} ({n.natureza_operacao})</span></td><td className="p-4 text-right font-black">{formatMoney(n.valor_bruto)}</td></tr>))}</tbody>
-           </table>
-           <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
-              <div><p className="text-xs font-black uppercase text-slate-400">Soma</p><p className="text-3xl font-black text-blue-600">{formatMoney(valorTotalSelecionado)}</p></div>
-              <button onClick={handleGerarLote} disabled={selecionadas.length===0} className={`px-8 py-4 rounded-xl font-black uppercase ${selecionadas.length > 0 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-400'}`}>Fechar Lote</button>
+           <div className="p-4 sm:p-6 bg-slate-900 text-white flex justify-between items-center"><h3 className="font-black text-base sm:text-lg flex items-center gap-2"><CheckSquare size={18}/> Notas Pendentes</h3></div>
+           <div className="overflow-x-auto max-w-full">
+             <table className="w-full text-sm text-left min-w-[600px]">
+               <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-black uppercase text-[9px] sm:text-[10px]"><tr><th className="p-3 sm:p-4 w-10 sm:w-12">SEL</th><th className="p-3 sm:p-4">Fornecedor</th><th className="p-3 sm:p-4">Documento</th><th className="p-3 sm:p-4 text-right">Valor Bruto / Devolvido (R$)</th></tr></thead>
+               <tbody className="divide-y divide-slate-100">{notasPendentes.map(n => (<tr key={n.id} onClick={() => toggleNota(n.id)} className={`cursor-pointer ${selecionadas.includes(n.id) ? 'bg-blue-50' : 'hover:bg-slate-50'}`}><td className="p-3 sm:p-4"><input type="checkbox" checked={selecionadas.includes(n.id)} readOnly className="w-4 h-4 sm:w-5 sm:h-5 cursor-pointer"/></td><td className="p-3 sm:p-4 font-black text-xs sm:text-sm">{n.contratos.razao_social}</td><td className="p-3 sm:p-4 text-xs sm:text-sm">Doc {n.numero_documento} <span className="block text-[8px] sm:text-[9px] text-slate-400">{n.tipo_documento} ({n.natureza_operacao})</span></td><td className="p-3 sm:p-4 text-right font-black text-sm sm:text-base">{formatMoney(n.valor_bruto)}</td></tr>))}</tbody>
+             </table>
+           </div>
+           <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-0">
+              <div className="text-center sm:text-left"><p className="text-[10px] sm:text-xs font-black uppercase text-slate-400">Soma</p><p className="text-2xl sm:text-3xl font-black text-blue-600">{formatMoney(valorTotalSelecionado)}</p></div>
+              <button onClick={handleGerarLote} disabled={selecionadas.length===0} className={`w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 rounded-xl text-xs sm:text-sm font-black uppercase ${selecionadas.length > 0 ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Fechar Lote</button>
            </div>
         </div>
         <div>
-          <h3 className="font-black text-slate-800 text-lg mb-6 flex items-center gap-2"><FileSpreadsheet className="text-emerald-600"/> Histórico</h3>
+          <h3 className="font-black text-slate-800 text-base sm:text-lg mb-4 sm:mb-6 flex items-center gap-2"><FileSpreadsheet className="text-emerald-600"/> Histórico</h3>
           <div className="grid grid-cols-1 gap-4">
             {lotesFechados.map(lote => {
                const somaLote = lote.documentos_fiscais.filter(nf => !['Cancelado', 'Substituido', 'Anulado'].includes(nf.status_documento)).reduce((acc, n) => acc + Number(n.valor_bruto), 0);
-               return (<div key={lote.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center"><div><h4 className="text-xl font-black text-slate-900">{lote.codigo_lote}</h4><p className="text-lg font-black text-emerald-600">{formatMoney(somaLote)}</p></div><button onClick={() => handleExportarExcel(lote)} className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-6 py-4 rounded-xl font-black uppercase"><Download size={20} /> Baixar Padrão LYON</button></div>)
+               return (
+                 <div key={lote.id} className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
+                   <div>
+                     <h4 className="text-lg sm:text-xl font-black text-slate-900">{lote.codigo_lote}</h4>
+                     <p className="text-base sm:text-lg font-black text-emerald-600 mt-0.5">{formatMoney(somaLote)}</p>
+                   </div>
+                   <button onClick={() => handleExportarExcel(lote)} className="w-full sm:w-auto flex justify-center items-center gap-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-4 sm:px-6 py-3 sm:py-4 rounded-xl text-xs sm:text-sm font-black uppercase transition-colors">
+                     <Download size={18} /> Baixar Padrão LYON
+                   </button>
+                 </div>
+               )
             })}
           </div>
         </div>
@@ -1968,9 +1980,9 @@ function AbaLotes() {
 // 6. CHASSI PRINCIPAL (SIDEBAR + ROUTING)
 // ============================================================================
 export default function App() {
-  const [activeTab, setActiveTab] = useState('alfandega');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [isConnected, setIsConnected] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile default closed
 
   useEffect(() => {
     async function checkConnection() {
@@ -1983,62 +1995,69 @@ export default function App() {
   }, []);
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden">
+    <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden relative">
       
-      <aside className={`${isSidebarOpen ? 'w-72' : 'w-20'} bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-20 shrink-0 transition-all duration-300 relative`}>
-        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800 bg-slate-950/50 overflow-hidden">
-          {isSidebarOpen && (
-            <div className="flex items-center gap-3 whitespace-nowrap animate-in fade-in">
-              <ShieldCheck className="text-emerald-500 shrink-0" size={28} />
-              <div>
-                <h1 className="text-xl font-black text-white tracking-wide leading-none uppercase">Crivo<span className="text-emerald-500 lowercase">.app</span></h1>
-                <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-1">Gerenciadora PMG</p>
-              </div>
+      {/* OVERLAY MOBILE */}
+      {isSidebarOpen && (
+        <div className="md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40" onClick={() => setIsSidebarOpen(false)} />
+      )}
+
+      {/* SIDEBAR RESPONSIVA */}
+      <aside className={`fixed md:relative top-0 left-0 h-full bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-50 shrink-0 transition-transform duration-300 w-64 md:w-20 lg:w-72 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800 bg-slate-950/50 overflow-hidden shrink-0">
+          <div className="flex items-center gap-3 whitespace-nowrap lg:flex md:hidden">
+            <ShieldCheck className="text-emerald-500 shrink-0" size={28} />
+            <div>
+              <h1 className="text-xl font-black text-white tracking-wide leading-none uppercase">Crivo<span className="text-emerald-500 lowercase">.app</span></h1>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-1">Gerenciadora PMG</p>
             </div>
-          )}
-          {!isSidebarOpen && <ShieldCheck className="text-emerald-500 mx-auto shrink-0" size={24} />}
+          </div>
+          <ShieldCheck className="text-emerald-500 mx-auto shrink-0 hidden md:block lg:hidden" size={24} />
+          {/* Close button for mobile */}
+          <button className="md:hidden text-slate-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}><X size={20}/></button>
         </div>
         
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="absolute top-6 -right-3 bg-slate-800 border border-slate-700 text-white p-1 rounded-full hover:bg-emerald-500 hover:border-emerald-400 transition-colors z-30" title={isSidebarOpen ? "Recolher Menu" : "Expandir Menu"}>
-          <Menu size={16} />
-        </button>
-
-        <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 overflow-x-hidden">
-          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-4 whitespace-nowrap">Visão Executiva</p>}
-          <MenuButton isOpen={isSidebarOpen} id="dashboard" icon={<LineChart size={18} className="shrink-0"/>} label="Dashboard PMG" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+        <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 overflow-x-hidden custom-scrollbar">
+          <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-4 whitespace-nowrap lg:block md:hidden">Visão Executiva</p>
+          <MenuButton isExpanded={true} id="dashboard" icon={<LineChart size={18} className="shrink-0"/>} label="Dashboard PMG" active={activeTab === 'dashboard'} onClick={() => {setActiveTab('dashboard'); setIsSidebarOpen(false);}} />
           
-          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap">Estrutura</p>}
-          <MenuButton isOpen={isSidebarOpen} id="contratos" icon={<Building2 size={18} className="shrink-0"/>} label="EAP & Contratos" active={activeTab === 'contratos'} onClick={() => setActiveTab('contratos')} />
+          <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap lg:block md:hidden">Estrutura</p>
+          <MenuButton isExpanded={true} id="contratos" icon={<Building2 size={18} className="shrink-0"/>} label="EAP & Contratos" active={activeTab === 'contratos'} onClick={() => {setActiveTab('contratos'); setIsSidebarOpen(false);}} />
           
-          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap">Operação de Campo</p>}
-          <MenuButton isOpen={isSidebarOpen} id="engenharia" icon={<HardHat size={18} className="shrink-0"/>} label="Engenharia (Medições)" active={activeTab === 'engenharia'} onClick={() => setActiveTab('engenharia')} />
-          <MenuButton isOpen={isSidebarOpen} id="alfandega" icon={<ShieldCheck size={18} className="shrink-0"/>} label="Alfândega (NFs)" active={activeTab === 'alfandega'} onClick={() => setActiveTab('alfandega')} />
+          <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap lg:block md:hidden">Operação de Campo</p>
+          <MenuButton isExpanded={true} id="engenharia" icon={<HardHat size={18} className="shrink-0"/>} label="Engenharia (Medições)" active={activeTab === 'engenharia'} onClick={() => {setActiveTab('engenharia'); setIsSidebarOpen(false);}} />
+          <MenuButton isExpanded={true} id="alfandega" icon={<ShieldCheck size={18} className="shrink-0"/>} label="Alfândega (NFs)" active={activeTab === 'alfandega'} onClick={() => {setActiveTab('alfandega'); setIsSidebarOpen(false);}} />
           
-          {isSidebarOpen && <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap">Fechamento</p>}
-          <MenuButton isOpen={isSidebarOpen} id="lotes" icon={<FolderLock size={18} className="shrink-0"/>} label="Lotes de Pagamento" active={activeTab === 'lotes'} onClick={() => setActiveTab('lotes')} />
+          <p className="px-3 text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-8 whitespace-nowrap lg:block md:hidden">Fechamento</p>
+          <MenuButton isExpanded={true} id="lotes" icon={<FolderLock size={18} className="shrink-0"/>} label="Lotes de Pagamento" active={activeTab === 'lotes'} onClick={() => {setActiveTab('lotes'); setIsSidebarOpen(false);}} />
         </nav>
 
-        <div className="p-4 border-t border-slate-800 bg-slate-950/30 overflow-hidden">
-          <div className={`flex items-center ${isSidebarOpen ? 'gap-3 px-3 py-3' : 'justify-center py-3'} rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-all`}>
+        <div className="p-4 border-t border-slate-800 bg-slate-950/30 overflow-hidden shrink-0">
+          <div className={`flex items-center gap-3 px-3 py-3 lg:justify-start md:justify-center rounded-2xl bg-slate-800/50 border border-slate-700/50 transition-all`}>
             <div className="relative flex h-2 w-2 shrink-0">
               {isConnected && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
               <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
             </div>
-            {isSidebarOpen && (
-              <div className="text-[10px] uppercase font-black tracking-tighter whitespace-nowrap">
-                <p className={isConnected ? 'text-emerald-400' : 'text-slate-400'}>{isConnected ? 'Motor Online & Blindado' : 'Aguardando Banco'}</p>
-              </div>
-            )}
+            <div className="text-[10px] uppercase font-black tracking-tighter whitespace-nowrap lg:block md:hidden">
+              <p className={isConnected ? 'text-emerald-400' : 'text-slate-400'}>{isConnected ? 'Motor Online & Blindado' : 'Aguardando Banco'}</p>
+            </div>
           </div>
         </div>
       </aside>
       
-      <main className="flex-1 flex flex-col relative overflow-hidden">
-        <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-10 z-10 shrink-0">
-          <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest"><Database size={14}/> Base de Dados / AMS Automações</div>
-          <button className="flex items-center gap-2 text-[10px] font-black text-slate-500 hover:text-rose-600 transition-colors uppercase tracking-widest"><LogOut size={14} /> Logout</button>
+      <main className="flex-1 flex flex-col relative overflow-hidden w-full">
+        {/* HEADER RESPONSIVO */}
+        <header className="h-16 sm:h-20 bg-white border-b border-slate-100 flex items-center justify-between px-4 sm:px-10 z-10 shrink-0">
+          <div className="flex items-center gap-3">
+            <button className="md:hidden p-2 -ml-2 text-slate-500 hover:text-slate-900 bg-slate-50 rounded-lg" onClick={() => setIsSidebarOpen(true)}>
+              <Menu size={20} />
+            </button>
+            <div className="flex items-center gap-2 text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest"><Database size={14} className="hidden sm:block"/> Base de Dados / AMS Automações</div>
+          </div>
+          <button className="flex items-center gap-1.5 sm:gap-2 text-[9px] sm:text-[10px] font-black text-slate-500 hover:text-rose-600 transition-colors uppercase tracking-widest"><LogOut size={14} /> <span className="hidden sm:inline">Logout</span></button>
         </header>
-        <div className="flex-1 overflow-auto p-10 bg-slate-50/50">
+        
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 bg-slate-50/50 custom-scrollbar">
           {activeTab === 'dashboard' && <AbaDashboard />}
           {activeTab === 'contratos' && <AbaContratos />}
           {activeTab === 'engenharia' && <AbaEngenharia />}
@@ -2050,15 +2069,15 @@ export default function App() {
   );
 }
 
-function MenuButton({ active, icon, label, onClick, isOpen }) {
+function MenuButton({ active, icon, label, onClick, isExpanded }) {
   return (
     <button 
       onClick={onClick} 
-      title={!isOpen ? label : ''}
-      className={`w-full flex items-center ${isOpen ? 'gap-3 px-4' : 'justify-center px-0'} py-3 rounded-xl text-[11px] font-black uppercase tracking-tight transition-all duration-300 ${active ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-500 hover:bg-slate-800 hover:text-white border border-transparent'}`}
+      title={label}
+      className={`w-full flex items-center gap-3 px-4 lg:justify-start md:justify-center py-3 rounded-xl text-[11px] font-black uppercase tracking-tight transition-all duration-300 ${active ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-500 hover:bg-slate-800 hover:text-white border border-transparent'}`}
     >
       {icon} 
-      {isOpen && <span className="whitespace-nowrap overflow-hidden text-left">{label}</span>}
+      <span className="whitespace-nowrap overflow-hidden text-left lg:block md:hidden block">{label}</span>
     </button>
   );
 }
