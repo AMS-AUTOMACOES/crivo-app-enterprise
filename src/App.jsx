@@ -83,7 +83,7 @@ const getBaseCode = (code) => {
 };
 
 // ============================================================================
-// ABA 1: DASHBOARD
+// 1. ABA DASHBOARD (A VISÃO DE ÁGUIA PMG E MATRIZ EM ÁRVORE)
 // ============================================================================
 function AbaDashboard() {
   const [empresas, setEmpresas] = useState([]);
@@ -115,7 +115,7 @@ function AbaDashboard() {
       const { data: medData } = await supabase.from('medicoes').select('valor_bruto_medido, contratos!inner(id, obra_id)').eq('contratos.obra_id', obrId);
 
       const { data: nfData } = await supabase.from('documentos_fiscais')
-        .select('valor_bruto, valor_retencao_tecnica, valor_amortizado_adiantamento, classificacao_faturamento, tipo_documento, status_documento, contratos!inner(id, obra_id, orcamento_pmg_id)')
+        .select('valor_bruto, valor_retencao_tecnica, valor_amortizado_adiantamento, classificacao_faturamento, tipo_documento, natureza_operacao, status_documento, contratos!inner(id, obra_id, orcamento_pmg_id)')
         .eq('contratos.obra_id', obrId);
 
       if (!orcData) return;
@@ -130,28 +130,33 @@ function AbaDashboard() {
       const nfAggByContract = {};
       (nfData || []).forEach(nf => {
         if (['Cancelado', 'Substituido', 'Anulado'].includes(nf.status_documento)) return;
+
         const cId = nf.contratos.id;
         if (!nfAggByContract[cId]) {
-          nfAggByContract[cId] = { fatDireto: 0, fatIndireto: 0, totalIncorrido: 0, retidoTotal: 0, retencaoDevolvida: 0, amortizadoAcumulado: 0, nfServico: 0, nfMaterial: 0, nfDebito: 0, nfDacte: 0, nfFatura: 0 };
+          nfAggByContract[cId] = { fatDireto: 0, fatIndireto: 0, totalIncorrido: 0, retidoTotal: 0, retencaoDevolvida: 0, amortizadoAcumulado: 0, nfServico: 0, nfMaterial: 0, nfDebito: 0, nfDacte: 0, nfFatura: 0, nfAdiantamento: 0 };
         }
         
         const v = Number(nf.valor_bruto);
-        const tipo = nf.tipo_documento;
         
-        if (tipo !== 'Liberação Retenção') {
+        if (nf.natureza_operacao !== 'Pagamento de Retenção') {
             nfAggByContract[cId].totalIncorrido += v;
             if (nf.classificacao_faturamento === 'Indireto') nfAggByContract[cId].fatIndireto += v; else nfAggByContract[cId].fatDireto += v; 
             
-            if (tipo === 'Serviço') nfAggByContract[cId].nfServico += v;
-            else if (tipo === 'Material') nfAggByContract[cId].nfMaterial += v;
-            else if (tipo === 'Nota de Débito') nfAggByContract[cId].nfDebito += v;
-            else if (tipo === 'DACTE') nfAggByContract[cId].nfDacte += v;
-            else if (tipo === 'Fatura') nfAggByContract[cId].nfFatura += v;
+            // Distrituição por Tipo de Documento Fiscal
+            if (nf.tipo_documento === 'Nota Fiscal' && nf.natureza_operacao === 'Serviço') nfAggByContract[cId].nfServico += v;
+            else if (nf.tipo_documento === 'Nota Fiscal' && nf.natureza_operacao === 'Material') nfAggByContract[cId].nfMaterial += v;
+            else if (nf.tipo_documento === 'Nota de Débito') nfAggByContract[cId].nfDebito += v;
+            else if (nf.tipo_documento === 'DACTE') nfAggByContract[cId].nfDacte += v;
+            else if (nf.tipo_documento === 'Fatura') nfAggByContract[cId].nfFatura += v;
+            else if (nf.tipo_documento === 'Recibo Adiantamento') nfAggByContract[cId].nfAdiantamento += v;
             
             nfAggByContract[cId].retidoTotal += Number(nf.valor_retencao_tecnica || 0);
             nfAggByContract[cId].amortizadoAcumulado += Number(nf.valor_amortizado_adiantamento || 0);
         } else {
             nfAggByContract[cId].retencaoDevolvida += v;
+            // Mesmo sendo retenção devolvida, devemos subtrair possíveis novas retenções e amortizações que foram lançadas nesta mesma nota, se houver.
+            nfAggByContract[cId].retidoTotal += Number(nf.valor_retencao_tecnica || 0);
+            nfAggByContract[cId].amortizadoAcumulado += Number(nf.valor_amortizado_adiantamento || 0);
         }
       });
 
@@ -163,7 +168,7 @@ function AbaDashboard() {
         const contratosDaLinha = (contData || []).filter(c => c.orcamento_pmg_id === orc.id).map(c => {
            const aditivosVal = c.aditivos_contrato?.reduce((acc, a) => acc + Number(a.valor_acrescimo), 0) || 0;
            const tetoAtualizado = Number(c.valor_inicial) + aditivosVal;
-           const agg = nfAggByContract[c.id] || { fatDireto: 0, fatIndireto: 0, totalIncorrido: 0, retidoTotal: 0, retencaoDevolvida: 0, amortizadoAcumulado: 0, nfServico: 0, nfMaterial: 0, nfDebito: 0, nfDacte: 0, nfFatura: 0 };
+           const agg = nfAggByContract[c.id] || { fatDireto: 0, fatIndireto: 0, totalIncorrido: 0, retidoTotal: 0, retencaoDevolvida: 0, amortizadoAcumulado: 0, nfServico: 0, nfMaterial: 0, nfDebito: 0, nfDacte: 0, nfFatura: 0, nfAdiantamento: 0 };
            const totalMedido = medAggByContract[c.id] || 0;
            const adiantamentoTotal = Number(c.valor_adiantamento_concedido) || 0;
            const saldoAdiantamento = adiantamentoTotal - agg.amortizadoAcumulado;
@@ -183,16 +188,16 @@ function AbaDashboard() {
       (contData || []).forEach(c => {
          const baseCode = getBaseCode(c.codigo_contrato);
          if (!contratosAgg[baseCode]) {
-             contratosAgg[baseCode] = { baseCode, fornecedor: c.razao_social, cnpj: c.cnpj_fornecedor, tetoGlobal: 0, fatDiretoGlobal: 0, fatIndiretoGlobal: 0, totalIncorridoGlobal: 0, retidoGlobal: 0, devolvidoGlobal: 0, saldoRetencaoGlobal: 0, adiantamentoConcedidoGlobal: 0, amortizadoGlobal: 0, saldoAdiantamentoGlobal: 0, totalMedidoGlobal: 0, nfServicoGlobal: 0, nfMaterialGlobal: 0, nfDebitoGlobal: 0, nfDacteGlobal: 0, nfFaturaGlobal: 0, faccoes: [] };
+             contratosAgg[baseCode] = { baseCode, fornecedor: c.razao_social, cnpj: c.cnpj_fornecedor, tetoGlobal: 0, fatDiretoGlobal: 0, fatIndiretoGlobal: 0, totalIncorridoGlobal: 0, retidoGlobal: 0, devolvidoGlobal: 0, saldoRetencaoGlobal: 0, adiantamentoConcedidoGlobal: 0, amortizadoGlobal: 0, saldoAdiantamentoGlobal: 0, totalMedidoGlobal: 0, nfServicoGlobal: 0, nfMaterialGlobal: 0, nfDebitoGlobal: 0, nfDacteGlobal: 0, nfFaturaGlobal: 0, nfAdiantamentoGlobal: 0, faccoes: [] };
          }
          const aditivosVal = c.aditivos_contrato?.reduce((acc, a) => acc + Number(a.valor_acrescimo), 0) || 0;
          const tetoAtualizado = Number(c.valor_inicial) + aditivosVal;
-         const agg = nfAggByContract[c.id] || { fatDireto: 0, fatIndireto: 0, totalIncorrido: 0, retidoTotal: 0, retencaoDevolvida: 0, amortizadoAcumulado: 0, nfServico: 0, nfMaterial: 0, nfDebito: 0, nfDacte: 0, nfFatura: 0 };
+         const agg = nfAggByContract[c.id] || { fatDireto: 0, fatIndireto: 0, totalIncorrido: 0, retidoTotal: 0, retencaoDevolvida: 0, amortizadoAcumulado: 0, nfServico: 0, nfMaterial: 0, nfDebito: 0, nfDacte: 0, nfFatura: 0, nfAdiantamento: 0 };
          const totalMedido = medAggByContract[c.id] || 0;
          const saldoAdiantamento = (Number(c.valor_adiantamento_concedido) || 0) - agg.amortizadoAcumulado;
          const saldoRetencao = agg.retidoTotal - agg.retencaoDevolvida;
 
-         contratosAgg[baseCode].tetoGlobal += tetoAtualizado; contratosAgg[baseCode].totalIncorridoGlobal += agg.totalIncorrido; contratosAgg[baseCode].fatDiretoGlobal += agg.fatDireto; contratosAgg[baseCode].fatIndiretoGlobal += agg.fatIndireto; contratosAgg[baseCode].retidoGlobal += agg.retidoTotal; contratosAgg[baseCode].devolvidoGlobal += agg.retencaoDevolvida; contratosAgg[baseCode].saldoRetencaoGlobal += saldoRetencao; contratosAgg[baseCode].adiantamentoConcedidoGlobal += Number(c.valor_adiantamento_concedido) || 0; contratosAgg[baseCode].amortizadoGlobal += agg.amortizadoAcumulado; contratosAgg[baseCode].saldoAdiantamentoGlobal += saldoAdiantamento; contratosAgg[baseCode].totalMedidoGlobal += totalMedido; contratosAgg[baseCode].nfServicoGlobal += agg.nfServico; contratosAgg[baseCode].nfMaterialGlobal += agg.nfMaterial; contratosAgg[baseCode].nfDebitoGlobal += agg.nfDebito; contratosAgg[baseCode].nfDacteGlobal += agg.nfDacte; contratosAgg[baseCode].nfFaturaGlobal += agg.nfFatura;
+         contratosAgg[baseCode].tetoGlobal += tetoAtualizado; contratosAgg[baseCode].totalIncorridoGlobal += agg.totalIncorrido; contratosAgg[baseCode].fatDiretoGlobal += agg.fatDireto; contratosAgg[baseCode].fatIndiretoGlobal += agg.fatIndireto; contratosAgg[baseCode].retidoGlobal += agg.retidoTotal; contratosAgg[baseCode].devolvidoGlobal += agg.retencaoDevolvida; contratosAgg[baseCode].saldoRetencaoGlobal += saldoRetencao; contratosAgg[baseCode].adiantamentoConcedidoGlobal += Number(c.valor_adiantamento_concedido) || 0; contratosAgg[baseCode].amortizadoGlobal += agg.amortizadoAcumulado; contratosAgg[baseCode].saldoAdiantamentoGlobal += saldoAdiantamento; contratosAgg[baseCode].totalMedidoGlobal += totalMedido; contratosAgg[baseCode].nfServicoGlobal += agg.nfServico; contratosAgg[baseCode].nfMaterialGlobal += agg.nfMaterial; contratosAgg[baseCode].nfDebitoGlobal += agg.nfDebito; contratosAgg[baseCode].nfDacteGlobal += agg.nfDacte; contratosAgg[baseCode].nfFaturaGlobal += agg.nfFatura; contratosAgg[baseCode].nfAdiantamentoGlobal += agg.nfAdiantamento;
          const orcamentoCorrespondente = orcData.find(o => o.id === c.orcamento_pmg_id);
          contratosAgg[baseCode].faccoes.push({ ...c, tetoAtualizado, ...agg, totalMedido, codigo_centro_custo: orcamentoCorrespondente?.codigo_centro_custo || 'N/A', descricao_centro_custo: orcamentoCorrespondente?.descricao_servico || 'N/A', adiantamentoTotal: Number(c.valor_adiantamento_concedido) || 0, saldoAdiantamento, saldoRetencao });
       });
@@ -232,6 +237,7 @@ function AbaDashboard() {
         <p className="text-slate-500">Controlo de Capex, Comprometimento e Execução Financeira em tempo real.</p>
       </header>
 
+      {/* FILTROS GLOBAIS DE DIRETORIA */}
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Building2 size={14}/> Empresa Investidora</label>
@@ -259,6 +265,7 @@ function AbaDashboard() {
         <div className="p-12 flex justify-center"><div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
       ) : dashboardData.kpis && (
         <>
+          {/* MODAL RAIO-X FINANCEIRO NO DASHBOARD */}
           {xrayData && (
             <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
@@ -296,7 +303,8 @@ function AbaDashboard() {
                              <div className="flex justify-between items-center text-sm"><span className="text-slate-600">NFs de Material</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfMaterialGlobal : xrayData.item.nfMaterial)}</span></div>
                              <div className="flex justify-between items-center text-sm"><span className="text-slate-600">Notas de Débito</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfDebitoGlobal : xrayData.item.nfDebito)}</span></div>
                              <div className="flex justify-between items-center text-sm"><span className="text-slate-600">DACTE (Frete)</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfDacteGlobal : xrayData.item.nfDacte)}</span></div>
-                             <div className="flex justify-between items-center text-sm"><span className="text-slate-600">Fatura</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfFaturaGlobal : xrayData.item.nfFatura)}</span></div>
+                             <div className="flex justify-between items-center text-sm"><span className="text-slate-600">Faturas</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfFaturaGlobal : xrayData.item.nfFatura)}</span></div>
+                             <div className="flex justify-between items-center text-sm"><span className="text-slate-600">Recibos de Adiantamento</span><span className="font-bold text-amber-600">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfAdiantamentoGlobal : xrayData.item.nfAdiantamento)}</span></div>
                            </div>
                            <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
                              <p className="text-xs font-black uppercase text-slate-800">Total Faturado</p>
@@ -1232,7 +1240,7 @@ function AbaEngenharia() {
 }
 
 // ============================================================================
-// 4. ABA 3: ALFÂNDEGA (NOTAS FISCAIS) E AUDITORIA DE CAIXA
+// 4. ABA 3: ALFÂNDEGA E AUDITORIA DE CAIXA
 // ============================================================================
 function AbaAlfandega() {
   const [empresas, setEmpresas] = useState([]);
@@ -1246,7 +1254,7 @@ function AbaAlfandega() {
   const [medicoes, setMedicoes] = useState([]);
   const [notasFiscais, setNotasFiscais] = useState([]);
   
-  const [tipoDocumento, setTipoDocumento] = useState('Serviço'); 
+  const [naturezaOp, setNaturezaOp] = useState('Serviço'); // Botões Superiores
   const [buscaNF, setBuscaNF] = useState('');
   const [selectedNF, setSelectedNF] = useState(null); 
   
@@ -1258,7 +1266,8 @@ function AbaAlfandega() {
     id: null, numero_documento: '', data_emissao: '', data_vencimento: '', 
     valor_bruto: '', impostos_destacados: '', valor_retencao_tecnica: '', 
     valor_amortizado_adiantamento: '', juros_multas: '', forma_pagamento: '',
-    pedido_id: '', medicao_id: '', classificacao_faturamento: 'Direto' 
+    pedido_id: '', medicao_id: '', classificacao_faturamento: 'Direto',
+    tipo_documento: 'Nota Fiscal' // NOVO: Dropdown
   });
 
   useEffect(() => { loadEmpresas(); }, []);
@@ -1285,20 +1294,21 @@ function AbaAlfandega() {
 
   const cancelEdit = () => {
     setIsEditingNF(false); setOriginalNF(null);
-    setFormNF({ id: null, numero_documento: '', data_emissao: '', data_vencimento: '', valor_bruto: '', impostos_destacados: '', valor_retencao_tecnica: '', valor_amortizado_adiantamento: '', juros_multas: '', forma_pagamento: '', pedido_id: '', medicao_id: '', classificacao_faturamento: 'Direto' });
+    setFormNF({ id: null, numero_documento: '', data_emissao: '', data_vencimento: '', valor_bruto: '', impostos_destacados: '', valor_retencao_tecnica: '', valor_amortizado_adiantamento: '', juros_multas: '', forma_pagamento: '', pedido_id: '', medicao_id: '', classificacao_faturamento: 'Direto', tipo_documento: 'Nota Fiscal' });
   };
 
   const handleEditNFClick = (nf) => {
     if (nf.lote_pagamento_id) return alert("BLOQUEIO DE AUDITORIA:\nEsta nota já está atrelada a um Romaneio. Não pode ser editada.");
     if (['Cancelado', 'Substituido', 'Anulado'].includes(nf.status_documento)) return alert("BLOQUEIO:\nDocumentos invalidados não podem ser reativados via edição.");
 
-    setTipoDocumento(nf.tipo_documento);
+    setNaturezaOp(nf.natureza_operacao || 'Serviço'); // Compatibility fallback
     setFormNF({
       id: nf.id, numero_documento: nf.numero_documento || '', data_emissao: nf.data_emissao || '', data_vencimento: nf.data_vencimento || '',
       valor_bruto: formatToCurrencyString(nf.valor_bruto), impostos_destacados: formatToCurrencyString(nf.impostos_destacados),
       valor_retencao_tecnica: formatToCurrencyString(nf.valor_retencao_tecnica), valor_amortizado_adiantamento: formatToCurrencyString(nf.valor_amortizado_adiantamento),
       juros_multas: formatToCurrencyString(nf.juros_multas), forma_pagamento: nf.conta_corrente || '',
-      pedido_id: nf.pedido_id || '', medicao_id: nf.medicao_id || '', classificacao_faturamento: nf.classificacao_faturamento || 'Direto'
+      pedido_id: nf.pedido_id || '', medicao_id: nf.medicao_id || '', classificacao_faturamento: nf.classificacao_faturamento || 'Direto',
+      tipo_documento: nf.tipo_documento || 'Nota Fiscal'
     });
     setOriginalNF(nf); setIsEditingNF(true); setActionMenuOpen(null);
   };
@@ -1313,7 +1323,6 @@ function AbaAlfandega() {
 
     if (!window.confirm(msg)) return;
     
-    // Adiciona o fato à trilha de auditoria
     const diffs = [`Status alterado para: ${novoStatus}`];
     let historicoNovo = nf.historico_edicoes ? [...nf.historico_edicoes] : [];
     historicoNovo.push({ data: new Date().toISOString(), alteracoes: diffs });
@@ -1329,11 +1338,15 @@ function AbaAlfandega() {
     const vBruto = parseCurrency(formNF.valor_bruto); const vImpostos = parseCurrency(formNF.impostos_destacados); const vRetencao = parseCurrency(formNF.valor_retencao_tecnica); const vAmortiza = parseCurrency(formNF.valor_amortizado_adiantamento); const vJuros = parseCurrency(formNF.juros_multas);
 
     const payload = {
-      contrato_id: selectedContratoId, tipo_documento: tipoDocumento, numero_documento: formNF.numero_documento,
+      contrato_id: selectedContratoId, 
+      natureza_operacao: naturezaOp, 
+      tipo_documento: formNF.tipo_documento,
+      numero_documento: formNF.numero_documento,
       data_emissao: formNF.data_emissao, data_vencimento: formNF.data_vencimento, 
       valor_bruto: vBruto, impostos_destacados: vImpostos, valor_retencao_tecnica: vRetencao, valor_amortizado_adiantamento: vAmortiza, juros_multas: vJuros,
       conta_corrente: formNF.forma_pagamento, classificacao_faturamento: formNF.classificacao_faturamento, 
-      pedido_id: tipoDocumento === 'Material' ? formNF.pedido_id : null, medicao_id: tipoDocumento === 'Serviço' ? formNF.medicao_id : null
+      pedido_id: naturezaOp === 'Material' ? formNF.pedido_id : null, 
+      medicao_id: naturezaOp === 'Serviço' ? formNF.medicao_id : null
     };
 
     if (isEditingNF) {
@@ -1360,7 +1373,7 @@ function AbaAlfandega() {
   const notasFiltradas = notasFiscais.filter(nf => {
     if (!buscaNF) return true;
     const term = buscaNF.toLowerCase();
-    return nf.numero_documento.toLowerCase().includes(term) || nf.contratos.razao_social.toLowerCase().includes(term) || nf.tipo_documento.toLowerCase().includes(term);
+    return nf.numero_documento.toLowerCase().includes(term) || nf.contratos.razao_social.toLowerCase().includes(term) || (nf.tipo_documento && nf.tipo_documento.toLowerCase().includes(term));
   });
 
   return (
@@ -1416,7 +1429,7 @@ function AbaAlfandega() {
                    <div><p className="text-[10px] font-black uppercase text-slate-400">Líquido a Pagar</p><p className="text-xs font-bold text-slate-500 mt-0.5">{selectedNF.conta_corrente || 'Padrão Cadastral'}</p></div>
                    {(() => {
                       let liquido = Number(selectedNF.valor_bruto) - Number(selectedNF.impostos_destacados || 0) - Number(selectedNF.valor_retencao_tecnica || 0) - Number(selectedNF.valor_amortizado_adiantamento || 0) + Number(selectedNF.juros_multas || 0);
-                      if (selectedNF.tipo_documento === 'Liberação Retenção') liquido = Number(selectedNF.valor_bruto);
+                      if (selectedNF.natureza_operacao === 'Pagamento de Retenção') liquido = Number(selectedNF.valor_bruto) - Number(selectedNF.impostos_destacados || 0) - Number(selectedNF.valor_retencao_tecnica || 0) - Number(selectedNF.valor_amortizado_adiantamento || 0) + Number(selectedNF.juros_multas || 0); // Flexibilidade solicitada
                       return <p className="text-3xl font-black text-emerald-400">{formatMoney(liquido)}</p>;
                    })()}
                  </div>
@@ -1483,10 +1496,10 @@ function AbaAlfandega() {
             )}
 
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-2">Natureza do Documento</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-2">Vínculo de Engenharia (Natureza)</label>
               <div className="flex flex-wrap gap-2 mb-2">
-                {['Serviço', 'Material', 'Liberação Retenção', 'Nota de Débito', 'DACTE', 'Fatura'].map(tipo => (
-                  <button key={tipo} type="button" disabled={isEditingNF} onClick={() => setTipoDocumento(tipo)} className={`px-4 py-2.5 text-[11px] font-bold rounded-xl border transition-colors ${tipoDocumento === tipo ? 'bg-rose-600 text-white border-rose-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 disabled:opacity-50'}`}>
+                {['Serviço', 'Material', 'Pagamento de Retenção'].map(tipo => (
+                  <button key={tipo} type="button" disabled={isEditingNF} onClick={() => setNaturezaOp(tipo)} className={`px-4 py-2.5 text-[11px] font-bold rounded-xl border transition-colors ${naturezaOp === tipo ? 'bg-rose-600 text-white border-rose-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 disabled:opacity-50'}`}>
                     {tipo}
                   </button>
                 ))}
@@ -1495,12 +1508,23 @@ function AbaAlfandega() {
             
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <div className="md:col-span-1 lg:col-span-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Vínculo de Engenharia</label>
-                {tipoDocumento === 'Serviço' && (<select required className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 outline-none" value={formNF.medicao_id} onChange={e => setFormNF({...formNF, medicao_id: e.target.value})}><option value="">Selecione a Medição</option>{medicoes.map(m => <option key={m.id} value={m.id}>{m.codigo_medicao} (Teto: {formatMoney(m.valor_bruto_medido)})</option>)}</select>)}
-                {tipoDocumento === 'Material' && (<select required className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 outline-none" value={formNF.pedido_id} onChange={e => setFormNF({...formNF, pedido_id: e.target.value})}><option value="">Selecione o Pedido</option>{pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido} (Teto: {formatMoney(p.valor_total_aprovado)})</option>)}</select>)}
-                {['Liberação Retenção', 'Nota de Débito', 'DACTE', 'Fatura'].includes(tipoDocumento) && (
+                <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Documento Base</label>
+                {naturezaOp === 'Serviço' && (<select required className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 outline-none" value={formNF.medicao_id} onChange={e => setFormNF({...formNF, medicao_id: e.target.value})}><option value="">Selecione a Medição</option>{medicoes.map(m => <option key={m.id} value={m.id}>{m.codigo_medicao} (Teto: {formatMoney(m.valor_bruto_medido)})</option>)}</select>)}
+                {naturezaOp === 'Material' && (<select required className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 outline-none" value={formNF.pedido_id} onChange={e => setFormNF({...formNF, pedido_id: e.target.value})}><option value="">Selecione o Pedido</option>{pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido} (Teto: {formatMoney(p.valor_total_aprovado)})</option>)}</select>)}
+                {naturezaOp === 'Pagamento de Retenção' && (
                   <div className="p-2.5 border border-dashed border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-black rounded-lg flex items-center justify-center uppercase tracking-wider h-[42px]">Documento Independente</div>
                 )}
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Tipo de Documento</label>
+                <select required className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 outline-none" value={formNF.tipo_documento} onChange={e => setFormNF({...formNF, tipo_documento: e.target.value})}>
+                   <option value="Nota Fiscal">Nota Fiscal</option>
+                   <option value="Nota de Débito">Nota de Débito</option>
+                   <option value="DACTE">DACTE</option>
+                   <option value="Fatura">Fatura</option>
+                   <option value="Recibo Adiantamento">Recibo Adiantamento</option>
+                </select>
               </div>
               
               <div>
@@ -1511,11 +1535,6 @@ function AbaAlfandega() {
                 </select>
               </div>
 
-              <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Nº do Documento</label>
-                <input required placeholder={tipoDocumento === 'Liberação Retenção' ? "Recibo/NF" : "Ex: 12345"} className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-800 outline-none focus:border-rose-400" value={formNF.numero_documento} onChange={e => setFormNF({...formNF, numero_documento: e.target.value})} />
-              </div>
-
               <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data Emissão</label><input required type="date" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-600 outline-none focus:border-rose-400" value={formNF.data_emissao} onChange={e => setFormNF({...formNF, data_emissao: e.target.value})} /></div>
               <div><label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Data Vencimento</label><input required type="date" className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-600 outline-none focus:border-rose-400" value={formNF.data_vencimento} onChange={e => setFormNF({...formNF, data_vencimento: e.target.value})} /></div>
               
@@ -1523,19 +1542,21 @@ function AbaAlfandega() {
 
             <div className="grid grid-cols-1 lg:grid-cols-6 gap-4 items-end">
                 <div className="lg:col-span-2">
-                    <label className="text-[10px] font-black text-rose-600 uppercase ml-1 block mb-1">{tipoDocumento === 'Liberação Retenção' ? 'Valor a Devolver' : 'Valor Bruto Total'}</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Nº do Documento</label>
+                    <input required placeholder="Ex: 12345" className="w-full p-3 mb-4 border border-slate-300 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-rose-400" value={formNF.numero_documento} onChange={e => setFormNF({...formNF, numero_documento: e.target.value})} />
+
+                    <label className="text-[10px] font-black text-rose-600 uppercase ml-1 block mb-1">Valor Bruto Total</label>
                     <CurrencyInput required placeholder="R$ 0,00" className="w-full p-3 border border-rose-300 rounded-xl text-lg font-black text-rose-900 bg-rose-50 outline-none focus:ring-2 focus:ring-rose-500" value={formNF.valor_bruto} onChange={val => setFormNF({...formNF, valor_bruto: val})} />
                 </div>
                 
-                {tipoDocumento !== 'Liberação Retenção' && (
-                    <div className="lg:col-span-4 border border-slate-100 p-3 rounded-xl bg-slate-50 grid grid-cols-2 md:grid-cols-5 gap-3">
-                        <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Impostos (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-slate-700 outline-none" value={formNF.impostos_destacados} onChange={val => setFormNF({...formNF, impostos_destacados: val})} /></div>
-                        <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Retenção Cativa (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-rose-700 outline-none" value={formNF.valor_retencao_tecnica} onChange={val => setFormNF({...formNF, valor_retencao_tecnica: val})} /></div>
-                        <div><label className="text-[9px] font-black text-amber-500 uppercase ml-1 block mb-1">Amortiza Adiant. (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-amber-300 bg-amber-50 rounded-md text-xs font-bold text-amber-800 outline-none" value={formNF.valor_amortizado_adiantamento} onChange={val => setFormNF({...formNF, valor_amortizado_adiantamento: val})} /></div>
-                        <div><label className="text-[9px] font-black text-emerald-600 uppercase ml-1 block mb-1">Juros (+)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-emerald-300 bg-emerald-50 rounded-md text-xs font-bold text-emerald-800 outline-none" value={formNF.juros_multas} onChange={val => setFormNF({...formNF, juros_multas: val})} /></div>
-                        <div><label className="text-[9px] font-black text-slate-500 uppercase ml-1 block mb-1">Forma Pagto / Conta</label><input placeholder="Ex: Bradesco" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-slate-700 outline-none" value={formNF.forma_pagamento} onChange={e => setFormNF({...formNF, forma_pagamento: e.target.value})} /></div>
-                    </div>
-                )}
+                {/* CAMPOS FINANCEIROS LIBERADOS PARA TODAS AS NATUREZAS, CONFORME SOLICITADO */}
+                <div className="lg:col-span-4 border border-slate-100 p-3 rounded-xl bg-slate-50 grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Impostos (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-slate-700 outline-none" value={formNF.impostos_destacados} onChange={val => setFormNF({...formNF, impostos_destacados: val})} /></div>
+                    <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Retenção Cativa (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-rose-700 outline-none" value={formNF.valor_retencao_tecnica} onChange={val => setFormNF({...formNF, valor_retencao_tecnica: val})} /></div>
+                    <div><label className="text-[9px] font-black text-amber-500 uppercase ml-1 block mb-1">Amortiza Adiant. (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-amber-300 bg-amber-50 rounded-md text-xs font-bold text-amber-800 outline-none" value={formNF.valor_amortizado_adiantamento} onChange={val => setFormNF({...formNF, valor_amortizado_adiantamento: val})} /></div>
+                    <div><label className="text-[9px] font-black text-emerald-600 uppercase ml-1 block mb-1">Juros (+)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-emerald-300 bg-emerald-50 rounded-md text-xs font-bold text-emerald-800 outline-none" value={formNF.juros_multas} onChange={val => setFormNF({...formNF, juros_multas: val})} /></div>
+                    <div><label className="text-[9px] font-black text-slate-500 uppercase ml-1 block mb-1">Forma Pagto / Conta</label><input placeholder="Ex: Bradesco" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-slate-700 outline-none" value={formNF.forma_pagamento} onChange={e => setFormNF({...formNF, forma_pagamento: e.target.value})} /></div>
+                </div>
             </div>
 
             <div className="mt-2 flex justify-end">
@@ -1566,19 +1587,19 @@ function AbaAlfandega() {
                notasFiltradas.map(nf => {
                  const isEditada = nf.historico_edicoes && nf.historico_edicoes.length > 0;
                  return (
-                   <div key={nf.id} className={`p-4 border rounded-2xl flex justify-between items-center transition-colors hover:shadow-md ${['Cancelado', 'Anulado'].includes(nf.status_documento) ? 'bg-rose-50/30 border-rose-100 opacity-60 grayscale' : (nf.status_documento === 'Substituido' ? 'bg-blue-50/30 border-blue-100 opacity-80' : (nf.tipo_documento === 'Liberação Retenção' ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200'))}`}>
+                   <div key={nf.id} className={`p-4 border rounded-2xl flex justify-between items-center transition-colors hover:shadow-md ${['Cancelado', 'Anulado'].includes(nf.status_documento) ? 'bg-rose-50/30 border-rose-100 opacity-60 grayscale' : (nf.status_documento === 'Substituido' ? 'bg-blue-50/30 border-blue-100 opacity-80' : (nf.natureza_operacao === 'Pagamento de Retenção' ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200'))}`}>
                      <div className="flex-1 min-w-0 pr-4 flex flex-col sm:flex-row sm:items-center gap-4">
                        
                        <div className="w-full sm:w-1/4 shrink-0">
                          <div className="flex items-center gap-2 mb-1">
-                           <span className={`font-black text-base leading-none ${['Cancelado','Anulado'].includes(nf.status_documento) ? 'line-through text-slate-400' : 'text-slate-800'}`}>NF {nf.numero_documento}</span>
+                           <span className={`font-black text-base leading-none ${['Cancelado','Anulado'].includes(nf.status_documento) ? 'line-through text-slate-400' : 'text-slate-800'}`}>Doc {nf.numero_documento}</span>
                            {nf.status_documento === 'Anulado' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-800 text-white flex items-center gap-1"><AlertOctagon size={10}/> Anulada (Erro)</span>}
                            {nf.status_documento === 'Cancelado' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 flex items-center gap-1">Cancelada</span>}
                            {nf.status_documento === 'Substituido' && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Substituída</span>}
                            {nf.status_documento === 'Ativo' && isEditada && <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Editada</span>}
                            {nf.status_documento === 'Ativo' && <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${nf.status_aprovacao === 'Aprovado' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{nf.status_aprovacao}</span>}
                          </div>
-                         <p className={`text-[10px] font-bold ${nf.tipo_documento === 'Liberação Retenção' ? 'text-emerald-600' : 'text-slate-400'}`}>{nf.tipo_documento} • {nf.classificacao_faturamento}</p>
+                         <p className={`text-[10px] font-bold ${nf.natureza_operacao === 'Pagamento de Retenção' ? 'text-emerald-600' : 'text-slate-400'}`}>{nf.tipo_documento} ({nf.natureza_operacao}) • {nf.classificacao_faturamento}</p>
                        </div>
 
                        <div className="flex-1">
@@ -1594,8 +1615,8 @@ function AbaAlfandega() {
                      
                      <div className="text-right shrink-0 flex items-center gap-3">
                        <div className="mr-2">
-                         <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5">{nf.tipo_documento === 'Liberação Retenção' ? 'Devolvido' : 'Bruto'}</p>
-                         <p className={`text-xl font-black ${['Cancelado','Anulado'].includes(nf.status_documento) ? 'text-slate-400' : (nf.tipo_documento === 'Liberação Retenção' ? 'text-emerald-600' : 'text-slate-900')}`}>{formatMoney(nf.valor_bruto)}</p>
+                         <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5">{nf.natureza_operacao === 'Pagamento de Retenção' ? 'Devolvido' : 'Bruto'}</p>
+                         <p className={`text-xl font-black ${['Cancelado','Anulado'].includes(nf.status_documento) ? 'text-slate-400' : (nf.natureza_operacao === 'Pagamento de Retenção' ? 'text-emerald-600' : 'text-slate-900')}`}>{formatMoney(nf.valor_bruto)}</p>
                        </div>
                        
                        <button onClick={() => setSelectedNF(nf)} className="p-2.5 bg-white border border-slate-200 text-slate-500 rounded-xl hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-sm" title="Raio-X da Nota">
@@ -1692,9 +1713,9 @@ function AbaLotes() {
     const dadosExcel = lote.documentos_fiscais.filter(nf => !['Cancelado', 'Substituido', 'Anulado'].includes(nf.status_documento)).map(nf => {
       const bruto = Number(nf.valor_bruto || 0); const impostos = Number(nf.impostos_destacados || 0); const retencao = Number(nf.valor_retencao_tecnica || 0); const adiantamento = Number(nf.valor_amortizado_adiantamento || 0); const juros = Number(nf.juros_multas || 0);
       let liquido = bruto - impostos - retencao - adiantamento + juros;
-      if(nf.tipo_documento === 'Liberação Retenção') liquido = bruto;
+      if(nf.natureza_operacao === 'Pagamento de Retenção') liquido = bruto - impostos - retencao - adiantamento + juros; // Permite abater multas no pgto de retencao
       return {
-        'Nº ROMANEIO': lote.codigo_lote, 'DATA FECHAMENTO': formatDate(lote.data_geracao), 'RAZÃO SOCIAL FORNECEDOR': nf.contratos?.razao_social, 'CNPJ': nf.contratos?.cnpj_fornecedor, 'Nº NOTA FISCAL': nf.numero_documento, 'TIPO': nf.tipo_documento, 'CENTRO DE CUSTO': nf.contratos?.centro_custo_raiz, 'EMISSÃO': formatDate(nf.data_emissao), 'VENCIMENTO': formatDate(nf.data_vencimento), 'VALOR BRUTO/RETIDO (R$)': bruto, 'VALOR DE IMPOSTOS': impostos, 'VALOR DE RETENÇÃO': retencao, 'DESCONTO ADIANTAMENTO/SINAL': adiantamento, 'VALOR DE JUROS E MULTAS': juros, 'LÍQUIDO A PAGAR (R$)': liquido, 'CONTA CORRENTE': nf.conta_corrente || '' 
+        'Nº ROMANEIO': lote.codigo_lote, 'DATA FECHAMENTO': formatDate(lote.data_geracao), 'RAZÃO SOCIAL FORNECEDOR': nf.contratos?.razao_social, 'CNPJ': nf.contratos?.cnpj_fornecedor, 'Nº NOTA FISCAL': nf.numero_documento, 'TIPO DOC': nf.tipo_documento, 'NATUREZA': nf.natureza_operacao, 'CENTRO DE CUSTO': nf.contratos?.centro_custo_raiz, 'EMISSÃO': formatDate(nf.data_emissao), 'VENCIMENTO': formatDate(nf.data_vencimento), 'VALOR BRUTO/RETIDO (R$)': bruto, 'VALOR DE IMPOSTOS': impostos, 'VALOR DE RETENÇÃO': retencao, 'DESCONTO ADIANTAMENTO/SINAL': adiantamento, 'VALOR DE JUROS E MULTAS': juros, 'LÍQUIDO A PAGAR (R$)': liquido, 'CONTA CORRENTE': nf.conta_corrente || '' 
       };
     });
     const worksheet = XLSX.utils.json_to_sheet(dadosExcel); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, worksheet, "Romaneio"); XLSX.writeFile(workbook, `${lote.codigo_lote}_Exportacao.xlsx`);
@@ -1713,7 +1734,7 @@ function AbaLotes() {
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden mb-8">
            <div className="p-6 bg-slate-900 text-white flex justify-between items-center"><h3 className="font-black text-lg flex items-center gap-2"><CheckSquare size={20}/> Notas Pendentes</h3></div>
            <table className="w-full text-sm text-left"><thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-black uppercase text-[10px]"><tr><th className="p-4 w-12">SEL</th><th className="p-4">Fornecedor</th><th className="p-4">Documento</th><th className="p-4 text-right">Valor Bruto / Devolvido (R$)</th></tr></thead>
-             <tbody className="divide-y divide-slate-100">{notasPendentes.map(n => (<tr key={n.id} onClick={() => toggleNota(n.id)} className={`cursor-pointer ${selecionadas.includes(n.id) ? 'bg-blue-50' : 'hover:bg-slate-50'}`}><td className="p-4"><input type="checkbox" checked={selecionadas.includes(n.id)} readOnly className="w-5 h-5"/></td><td className="p-4 font-black">{n.contratos.razao_social}</td><td className="p-4">NF {n.numero_documento} <span className="block text-[9px] text-slate-400">{n.tipo_documento}</span></td><td className="p-4 text-right font-black">{formatMoney(n.valor_bruto)}</td></tr>))}</tbody>
+             <tbody className="divide-y divide-slate-100">{notasPendentes.map(n => (<tr key={n.id} onClick={() => toggleNota(n.id)} className={`cursor-pointer ${selecionadas.includes(n.id) ? 'bg-blue-50' : 'hover:bg-slate-50'}`}><td className="p-4"><input type="checkbox" checked={selecionadas.includes(n.id)} readOnly className="w-5 h-5"/></td><td className="p-4 font-black">{n.contratos.razao_social}</td><td className="p-4">Doc {n.numero_documento} <span className="block text-[9px] text-slate-400">{n.tipo_documento} ({n.natureza_operacao})</span></td><td className="p-4 text-right font-black">{formatMoney(n.valor_bruto)}</td></tr>))}</tbody>
            </table>
            <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
               <div><p className="text-xs font-black uppercase text-slate-400">Soma</p><p className="text-3xl font-black text-blue-600">{formatMoney(valorTotalSelecionado)}</p></div>
