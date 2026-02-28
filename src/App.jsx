@@ -76,10 +76,13 @@ function CurrencyInput({ value, onChange, placeholder, className, required, disa
   );
 }
 
-const getBaseCode = (code) => {
+// CORREÇÃO DE RATEIO MANUAL (AUDITORIA E CASCATA)
+const getAllBaseCodes = (contratos) => contratos.map(c => c.codigo_contrato).sort((a,b) => b.length - a.length);
+const findBaseCode = (code, allCodes) => {
   if (!code) return '';
-  const match = code.match(/^(.*)\.\d+$/);
-  return match ? match[1] : code;
+  // Procura se o código começa com algum código base existente e se o que sobra é sufixo de rateio (.1, -A, -Rateio)
+  const parent = allCodes.find(base => code !== base && code.startsWith(base) && /^[\.\-A-Za-z_]/.test(code.substring(base.length)));
+  return parent || code;
 };
 
 // ============================================================================
@@ -137,24 +140,28 @@ function AbaDashboard() {
         }
         
         const v = Number(nf.valor_bruto);
+        const tipo = nf.tipo_documento;
         
-        if (nf.natureza_operacao !== 'Pagamento de Retenção') {
-            nfAggByContract[cId].totalIncorrido += v;
-            if (nf.classificacao_faturamento === 'Indireto') nfAggByContract[cId].fatIndireto += v; else nfAggByContract[cId].fatDireto += v; 
-            
-            // Distrituição por Tipo de Documento Fiscal
-            if (nf.tipo_documento === 'Nota Fiscal' && nf.natureza_operacao === 'Serviço') nfAggByContract[cId].nfServico += v;
-            else if (nf.tipo_documento === 'Nota Fiscal' && nf.natureza_operacao === 'Material') nfAggByContract[cId].nfMaterial += v;
-            else if (nf.tipo_documento === 'Nota de Débito') nfAggByContract[cId].nfDebito += v;
-            else if (nf.tipo_documento === 'DACTE') nfAggByContract[cId].nfDacte += v;
-            else if (nf.tipo_documento === 'Fatura') nfAggByContract[cId].nfFatura += v;
-            else if (nf.tipo_documento === 'Recibo Adiantamento') nfAggByContract[cId].nfAdiantamento += v;
-            
+        if (tipo === 'Liberação Retenção') {
+            nfAggByContract[cId].retencaoDevolvida += v;
             nfAggByContract[cId].retidoTotal += Number(nf.valor_retencao_tecnica || 0);
             nfAggByContract[cId].amortizadoAcumulado += Number(nf.valor_amortizado_adiantamento || 0);
+        } else if (tipo === 'Recibo Adiantamento') {
+            // CORREÇÃO FURO 1: Adiantamento contabiliza em separado, nunca no Faturamento
+            nfAggByContract[cId].nfAdiantamento += v;
         } else {
-            nfAggByContract[cId].retencaoDevolvida += v;
-            // Mesmo sendo retenção devolvida, devemos subtrair possíveis novas retenções e amortizações que foram lançadas nesta mesma nota, se houver.
+            // FATURAMENTO REAL
+            nfAggByContract[cId].totalIncorrido += v;
+            if (nf.classificacao_faturamento === 'Indireto') nfAggByContract[cId].fatIndireto += v; 
+            else nfAggByContract[cId].fatDireto += v; 
+            
+            if (tipo === 'Nota Fiscal' && nf.natureza_operacao === 'Serviço') nfAggByContract[cId].nfServico += v;
+            else if (tipo === 'Nota Fiscal' && nf.natureza_operacao === 'Material') nfAggByContract[cId].nfMaterial += v;
+            else if (tipo === 'Nota de Débito') nfAggByContract[cId].nfDebito += v;
+            else if (tipo === 'DACTE') nfAggByContract[cId].nfDacte += v;
+            else if (tipo === 'Fatura') nfAggByContract[cId].nfFatura += v;
+            else nfAggByContract[cId].nfServico += v; // Fallback
+            
             nfAggByContract[cId].retidoTotal += Number(nf.valor_retencao_tecnica || 0);
             nfAggByContract[cId].amortizadoAcumulado += Number(nf.valor_amortizado_adiantamento || 0);
         }
@@ -170,7 +177,11 @@ function AbaDashboard() {
            const tetoAtualizado = Number(c.valor_inicial) + aditivosVal;
            const agg = nfAggByContract[c.id] || { fatDireto: 0, fatIndireto: 0, totalIncorrido: 0, retidoTotal: 0, retencaoDevolvida: 0, amortizadoAcumulado: 0, nfServico: 0, nfMaterial: 0, nfDebito: 0, nfDacte: 0, nfFatura: 0, nfAdiantamento: 0 };
            const totalMedido = medAggByContract[c.id] || 0;
-           const adiantamentoTotal = Number(c.valor_adiantamento_concedido) || 0;
+           
+           // CORREÇÃO FURO 4: Verdade do Adiantamento. Pega o maior entre o contrato e o que já foi recebido em nota.
+           const adiantamentoContrato = Number(c.valor_adiantamento_concedido) || 0;
+           const adiantamentoTotal = Math.max(adiantamentoContrato, agg.nfAdiantamento);
+           
            const saldoAdiantamento = adiantamentoTotal - agg.amortizadoAcumulado;
            const saldoRetencao = agg.retidoTotal - agg.retencaoDevolvida;
            return { ...c, tetoAtualizado, ...agg, totalMedido, adiantamentoTotal, saldoAdiantamento, saldoRetencao };
@@ -185,8 +196,10 @@ function AbaDashboard() {
       });
 
       const contratosAgg = {};
+      const allCodes = getAllBaseCodes(contData || []);
+
       (contData || []).forEach(c => {
-         const baseCode = getBaseCode(c.codigo_contrato);
+         const baseCode = findBaseCode(c.codigo_contrato, allCodes);
          if (!contratosAgg[baseCode]) {
              contratosAgg[baseCode] = { baseCode, fornecedor: c.razao_social, cnpj: c.cnpj_fornecedor, tetoGlobal: 0, fatDiretoGlobal: 0, fatIndiretoGlobal: 0, totalIncorridoGlobal: 0, retidoGlobal: 0, devolvidoGlobal: 0, saldoRetencaoGlobal: 0, adiantamentoConcedidoGlobal: 0, amortizadoGlobal: 0, saldoAdiantamentoGlobal: 0, totalMedidoGlobal: 0, nfServicoGlobal: 0, nfMaterialGlobal: 0, nfDebitoGlobal: 0, nfDacteGlobal: 0, nfFaturaGlobal: 0, nfAdiantamentoGlobal: 0, faccoes: [] };
          }
@@ -194,12 +207,16 @@ function AbaDashboard() {
          const tetoAtualizado = Number(c.valor_inicial) + aditivosVal;
          const agg = nfAggByContract[c.id] || { fatDireto: 0, fatIndireto: 0, totalIncorrido: 0, retidoTotal: 0, retencaoDevolvida: 0, amortizadoAcumulado: 0, nfServico: 0, nfMaterial: 0, nfDebito: 0, nfDacte: 0, nfFatura: 0, nfAdiantamento: 0 };
          const totalMedido = medAggByContract[c.id] || 0;
-         const saldoAdiantamento = (Number(c.valor_adiantamento_concedido) || 0) - agg.amortizadoAcumulado;
+         
+         const adiantamentoContrato = Number(c.valor_adiantamento_concedido) || 0;
+         const adiantamentoReal = Math.max(adiantamentoContrato, agg.nfAdiantamento);
+         
+         const saldoAdiantamento = adiantamentoReal - agg.amortizadoAcumulado;
          const saldoRetencao = agg.retidoTotal - agg.retencaoDevolvida;
 
-         contratosAgg[baseCode].tetoGlobal += tetoAtualizado; contratosAgg[baseCode].totalIncorridoGlobal += agg.totalIncorrido; contratosAgg[baseCode].fatDiretoGlobal += agg.fatDireto; contratosAgg[baseCode].fatIndiretoGlobal += agg.fatIndireto; contratosAgg[baseCode].retidoGlobal += agg.retidoTotal; contratosAgg[baseCode].devolvidoGlobal += agg.retencaoDevolvida; contratosAgg[baseCode].saldoRetencaoGlobal += saldoRetencao; contratosAgg[baseCode].adiantamentoConcedidoGlobal += Number(c.valor_adiantamento_concedido) || 0; contratosAgg[baseCode].amortizadoGlobal += agg.amortizadoAcumulado; contratosAgg[baseCode].saldoAdiantamentoGlobal += saldoAdiantamento; contratosAgg[baseCode].totalMedidoGlobal += totalMedido; contratosAgg[baseCode].nfServicoGlobal += agg.nfServico; contratosAgg[baseCode].nfMaterialGlobal += agg.nfMaterial; contratosAgg[baseCode].nfDebitoGlobal += agg.nfDebito; contratosAgg[baseCode].nfDacteGlobal += agg.nfDacte; contratosAgg[baseCode].nfFaturaGlobal += agg.nfFatura; contratosAgg[baseCode].nfAdiantamentoGlobal += agg.nfAdiantamento;
+         contratosAgg[baseCode].tetoGlobal += tetoAtualizado; contratosAgg[baseCode].totalIncorridoGlobal += agg.totalIncorrido; contratosAgg[baseCode].fatDiretoGlobal += agg.fatDireto; contratosAgg[baseCode].fatIndiretoGlobal += agg.fatIndireto; contratosAgg[baseCode].retidoGlobal += agg.retidoTotal; contratosAgg[baseCode].devolvidoGlobal += agg.retencaoDevolvida; contratosAgg[baseCode].saldoRetencaoGlobal += saldoRetencao; contratosAgg[baseCode].adiantamentoConcedidoGlobal += adiantamentoReal; contratosAgg[baseCode].amortizadoGlobal += agg.amortizadoAcumulado; contratosAgg[baseCode].saldoAdiantamentoGlobal += saldoAdiantamento; contratosAgg[baseCode].totalMedidoGlobal += totalMedido; contratosAgg[baseCode].nfServicoGlobal += agg.nfServico; contratosAgg[baseCode].nfMaterialGlobal += agg.nfMaterial; contratosAgg[baseCode].nfDebitoGlobal += agg.nfDebito; contratosAgg[baseCode].nfDacteGlobal += agg.nfDacte; contratosAgg[baseCode].nfFaturaGlobal += agg.nfFatura; contratosAgg[baseCode].nfAdiantamentoGlobal += agg.nfAdiantamento;
          const orcamentoCorrespondente = orcData.find(o => o.id === c.orcamento_pmg_id);
-         contratosAgg[baseCode].faccoes.push({ ...c, tetoAtualizado, ...agg, totalMedido, codigo_centro_custo: orcamentoCorrespondente?.codigo_centro_custo || 'N/A', descricao_centro_custo: orcamentoCorrespondente?.descricao_servico || 'N/A', adiantamentoTotal: Number(c.valor_adiantamento_concedido) || 0, saldoAdiantamento, saldoRetencao });
+         contratosAgg[baseCode].faccoes.push({ ...c, tetoAtualizado, ...agg, totalMedido, codigo_centro_custo: orcamentoCorrespondente?.codigo_centro_custo || 'N/A', descricao_centro_custo: orcamentoCorrespondente?.descricao_servico || 'N/A', adiantamentoTotal: adiantamentoReal, saldoAdiantamento, saldoRetencao });
       });
 
       const globalSave = globalCapex - globalContratado;
@@ -304,7 +321,6 @@ function AbaDashboard() {
                              <div className="flex justify-between items-center text-sm"><span className="text-slate-600">Notas de Débito</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfDebitoGlobal : xrayData.item.nfDebito)}</span></div>
                              <div className="flex justify-between items-center text-sm"><span className="text-slate-600">DACTE (Frete)</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfDacteGlobal : xrayData.item.nfDacte)}</span></div>
                              <div className="flex justify-between items-center text-sm"><span className="text-slate-600">Faturas</span><span className="font-bold">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfFaturaGlobal : xrayData.item.nfFatura)}</span></div>
-                             <div className="flex justify-between items-center text-sm"><span className="text-slate-600">Recibos de Adiantamento</span><span className="font-bold text-amber-600">{formatMoney(xrayData.isAgrupado ? xrayData.item.nfAdiantamentoGlobal : xrayData.item.nfAdiantamento)}</span></div>
                            </div>
                            <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
                              <p className="text-xs font-black uppercase text-slate-800">Total Faturado</p>
@@ -702,8 +718,9 @@ function AbaContratos() {
   };
 
   const handleOpenRateio = (c) => {
-    const baseCode = getBaseCode(c.codigo_contrato); 
-    const relacionados = contratos.filter(ct => getBaseCode(ct.codigo_contrato) === baseCode);
+    const allCodes = getAllBaseCodes(contratos);
+    const baseCode = findBaseCode(c.codigo_contrato, allCodes); 
+    const relacionados = contratos.filter(ct => findBaseCode(ct.codigo_contrato, allCodes) === baseCode);
     const proximoSufixo = relacionados.length;
     const novoCodigo = `${baseCode}.${proximoSufixo}`;
     
@@ -757,8 +774,10 @@ function AbaContratos() {
   const saveGerado = tetoAprovado - somaOutrosContratos - valorDigitado;
 
   const groupedContracts = {};
+  const allCodes = getAllBaseCodes(contratos);
+
   contratos.forEach(c => {
-    const baseCode = getBaseCode(c.codigo_contrato);
+    const baseCode = findBaseCode(c.codigo_contrato, allCodes);
     if (!groupedContracts[baseCode]) {
       groupedContracts[baseCode] = { root: null, rateios: [], totalUnified: 0 };
     }
@@ -972,7 +991,7 @@ function AbaContratos() {
                 <CurrencyInput required className="w-full p-3 border border-emerald-300 rounded-lg text-base font-black text-emerald-900 bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500" value={formContrato.valor_inicial} onChange={val => setFormContrato({...formContrato, valor_inicial: val})} />
               </div>
               <div>
-                <label className="text-[10px] font-black text-amber-500 uppercase ml-1 block mb-1">Adiantamento de Caixa</label>
+                <label className="text-[10px] font-black text-amber-500 uppercase ml-1 block mb-1">Adiantamento de Caixa (Teto Opcional)</label>
                 <CurrencyInput className="w-full p-3 border border-amber-200 rounded-lg text-base font-black text-amber-800 bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400" value={formContrato.valor_adiantamento_concedido} onChange={val => setFormContrato({...formContrato, valor_adiantamento_concedido: val})} />
               </div>
             </div>
@@ -1254,7 +1273,7 @@ function AbaAlfandega() {
   const [medicoes, setMedicoes] = useState([]);
   const [notasFiscais, setNotasFiscais] = useState([]);
   
-  const [naturezaOp, setNaturezaOp] = useState('Serviço'); // Botões Superiores
+  const [naturezaOp, setNaturezaOp] = useState('Serviço'); 
   const [buscaNF, setBuscaNF] = useState('');
   const [selectedNF, setSelectedNF] = useState(null); 
   
@@ -1267,13 +1286,22 @@ function AbaAlfandega() {
     valor_bruto: '', impostos_destacados: '', valor_retencao_tecnica: '', 
     valor_amortizado_adiantamento: '', juros_multas: '', forma_pagamento: '',
     pedido_id: '', medicao_id: '', classificacao_faturamento: 'Direto',
-    tipo_documento: 'Nota Fiscal' // NOVO: Dropdown
+    tipo_documento: 'Nota Fiscal' 
   });
 
   useEffect(() => { loadEmpresas(); }, []);
   useEffect(() => { if (selectedEmpresaId) loadObras(); else { setObras([]); setSelectedObraId(''); } }, [selectedEmpresaId]);
   useEffect(() => { if (selectedObraId) loadContratos(); else { setContratos([]); setSelectedContratoId(''); } }, [selectedObraId]);
   useEffect(() => { if (selectedContratoId) { loadTetoFisico(); loadNotasFiscais(); } else { setPedidos([]); setMedicoes([]); setNotasFiscais([]); } }, [selectedContratoId]);
+
+  // CORREÇÃO: Força o tipo de documento ser Liberacao Retencao se for a Natureza de Retenção
+  useEffect(() => {
+    if (naturezaOp === 'Pagamento de Retenção') {
+        setFormNF(prev => ({...prev, tipo_documento: 'Liberação Retenção'}));
+    } else if (formNF.tipo_documento === 'Liberação Retenção') {
+        setFormNF(prev => ({...prev, tipo_documento: 'Nota Fiscal'}));
+    }
+  }, [naturezaOp]);
 
   async function loadEmpresas() { const { data } = await supabase.from('empresas').select('*').order('razao_social'); setEmpresas(data || []); }
   async function loadObras() { const { data } = await supabase.from('obras').select('*').eq('empresa_id', selectedEmpresaId).order('nome_obra'); setObras(data || []); }
@@ -1301,7 +1329,7 @@ function AbaAlfandega() {
     if (nf.lote_pagamento_id) return alert("BLOQUEIO DE AUDITORIA:\nEsta nota já está atrelada a um Romaneio. Não pode ser editada.");
     if (['Cancelado', 'Substituido', 'Anulado'].includes(nf.status_documento)) return alert("BLOQUEIO:\nDocumentos invalidados não podem ser reativados via edição.");
 
-    setNaturezaOp(nf.natureza_operacao || 'Serviço'); // Compatibility fallback
+    setNaturezaOp(nf.natureza_operacao || 'Serviço'); 
     setFormNF({
       id: nf.id, numero_documento: nf.numero_documento || '', data_emissao: nf.data_emissao || '', data_vencimento: nf.data_vencimento || '',
       valor_bruto: formatToCurrencyString(nf.valor_bruto), impostos_destacados: formatToCurrencyString(nf.impostos_destacados),
@@ -1337,6 +1365,9 @@ function AbaAlfandega() {
     
     const vBruto = parseCurrency(formNF.valor_bruto); const vImpostos = parseCurrency(formNF.impostos_destacados); const vRetencao = parseCurrency(formNF.valor_retencao_tecnica); const vAmortiza = parseCurrency(formNF.valor_amortizado_adiantamento); const vJuros = parseCurrency(formNF.juros_multas);
 
+    // CORREÇÃO FURO 2: Se for doc independente, não envia ID de pedido ou medição pro banco.
+    const isIndependente = ['Liberação Retenção', 'Nota de Débito', 'DACTE', 'Fatura', 'Recibo Adiantamento'].includes(formNF.tipo_documento) || naturezaOp === 'Pagamento de Retenção';
+
     const payload = {
       contrato_id: selectedContratoId, 
       natureza_operacao: naturezaOp, 
@@ -1345,8 +1376,8 @@ function AbaAlfandega() {
       data_emissao: formNF.data_emissao, data_vencimento: formNF.data_vencimento, 
       valor_bruto: vBruto, impostos_destacados: vImpostos, valor_retencao_tecnica: vRetencao, valor_amortizado_adiantamento: vAmortiza, juros_multas: vJuros,
       conta_corrente: formNF.forma_pagamento, classificacao_faturamento: formNF.classificacao_faturamento, 
-      pedido_id: naturezaOp === 'Material' ? formNF.pedido_id : null, 
-      medicao_id: naturezaOp === 'Serviço' ? formNF.medicao_id : null
+      pedido_id: (!isIndependente && naturezaOp === 'Material') ? formNF.pedido_id : null, 
+      medicao_id: (!isIndependente && naturezaOp === 'Serviço') ? formNF.medicao_id : null
     };
 
     if (isEditingNF) {
@@ -1429,7 +1460,6 @@ function AbaAlfandega() {
                    <div><p className="text-[10px] font-black uppercase text-slate-400">Líquido a Pagar</p><p className="text-xs font-bold text-slate-500 mt-0.5">{selectedNF.conta_corrente || 'Padrão Cadastral'}</p></div>
                    {(() => {
                       let liquido = Number(selectedNF.valor_bruto) - Number(selectedNF.impostos_destacados || 0) - Number(selectedNF.valor_retencao_tecnica || 0) - Number(selectedNF.valor_amortizado_adiantamento || 0) + Number(selectedNF.juros_multas || 0);
-                      if (selectedNF.natureza_operacao === 'Pagamento de Retenção') liquido = Number(selectedNF.valor_bruto) - Number(selectedNF.impostos_destacados || 0) - Number(selectedNF.valor_retencao_tecnica || 0) - Number(selectedNF.valor_amortizado_adiantamento || 0) + Number(selectedNF.juros_multas || 0); // Flexibilidade solicitada
                       return <p className="text-3xl font-black text-emerald-400">{formatMoney(liquido)}</p>;
                    })()}
                  </div>
@@ -1509,11 +1539,20 @@ function AbaAlfandega() {
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <div className="md:col-span-1 lg:col-span-2">
                 <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Documento Base</label>
-                {naturezaOp === 'Serviço' && (<select required className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 outline-none" value={formNF.medicao_id} onChange={e => setFormNF({...formNF, medicao_id: e.target.value})}><option value="">Selecione a Medição</option>{medicoes.map(m => <option key={m.id} value={m.id}>{m.codigo_medicao} (Teto: {formatMoney(m.valor_bruto_medido)})</option>)}</select>)}
-                {naturezaOp === 'Material' && (<select required className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 outline-none" value={formNF.pedido_id} onChange={e => setFormNF({...formNF, pedido_id: e.target.value})}><option value="">Selecione o Pedido</option>{pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido} (Teto: {formatMoney(p.valor_total_aprovado)})</option>)}</select>)}
-                {naturezaOp === 'Pagamento de Retenção' && (
-                  <div className="p-2.5 border border-dashed border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-black rounded-lg flex items-center justify-center uppercase tracking-wider h-[42px]">Documento Independente</div>
-                )}
+                {/* CORREÇÃO FURO 2: Documentos Independentes não precisam de Medição/Pedido */}
+                {(() => {
+                  const isIndependente = ['Liberação Retenção', 'Nota de Débito', 'DACTE', 'Fatura', 'Recibo Adiantamento'].includes(formNF.tipo_documento) || naturezaOp === 'Pagamento de Retenção';
+                  
+                  if (isIndependente) {
+                    return <div className="p-2.5 border border-dashed border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-black rounded-lg flex items-center justify-center uppercase tracking-wider h-[42px]">Documento Independente</div>;
+                  }
+                  if (naturezaOp === 'Serviço') {
+                    return <select required className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 outline-none" value={formNF.medicao_id} onChange={e => setFormNF({...formNF, medicao_id: e.target.value})}><option value="">Selecione a Medição</option>{medicoes.map(m => <option key={m.id} value={m.id}>{m.codigo_medicao} (Teto: {formatMoney(m.valor_bruto_medido)})</option>)}</select>;
+                  }
+                  if (naturezaOp === 'Material') {
+                    return <select required className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 outline-none" value={formNF.pedido_id} onChange={e => setFormNF({...formNF, pedido_id: e.target.value})}><option value="">Selecione o Pedido</option>{pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido} (Teto: {formatMoney(p.valor_total_aprovado)})</option>)}</select>;
+                  }
+                })()}
               </div>
 
               <div>
@@ -1524,6 +1563,7 @@ function AbaAlfandega() {
                    <option value="DACTE">DACTE</option>
                    <option value="Fatura">Fatura</option>
                    <option value="Recibo Adiantamento">Recibo Adiantamento</option>
+                   {naturezaOp === 'Pagamento de Retenção' && <option value="Liberação Retenção">Liberação de Retenção</option>}
                 </select>
               </div>
               
@@ -1549,7 +1589,6 @@ function AbaAlfandega() {
                     <CurrencyInput required placeholder="R$ 0,00" className="w-full p-3 border border-rose-300 rounded-xl text-lg font-black text-rose-900 bg-rose-50 outline-none focus:ring-2 focus:ring-rose-500" value={formNF.valor_bruto} onChange={val => setFormNF({...formNF, valor_bruto: val})} />
                 </div>
                 
-                {/* CAMPOS FINANCEIROS LIBERADOS PARA TODAS AS NATUREZAS, CONFORME SOLICITADO */}
                 <div className="lg:col-span-4 border border-slate-100 p-3 rounded-xl bg-slate-50 grid grid-cols-2 md:grid-cols-5 gap-3">
                     <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Impostos (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-slate-700 outline-none" value={formNF.impostos_destacados} onChange={val => setFormNF({...formNF, impostos_destacados: val})} /></div>
                     <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Retenção Cativa (-)</label><CurrencyInput placeholder="0,00" className="w-full p-2 border border-slate-300 rounded-md text-xs font-bold text-rose-700 outline-none" value={formNF.valor_retencao_tecnica} onChange={val => setFormNF({...formNF, valor_retencao_tecnica: val})} /></div>
@@ -1713,7 +1752,6 @@ function AbaLotes() {
     const dadosExcel = lote.documentos_fiscais.filter(nf => !['Cancelado', 'Substituido', 'Anulado'].includes(nf.status_documento)).map(nf => {
       const bruto = Number(nf.valor_bruto || 0); const impostos = Number(nf.impostos_destacados || 0); const retencao = Number(nf.valor_retencao_tecnica || 0); const adiantamento = Number(nf.valor_amortizado_adiantamento || 0); const juros = Number(nf.juros_multas || 0);
       let liquido = bruto - impostos - retencao - adiantamento + juros;
-      if(nf.natureza_operacao === 'Pagamento de Retenção') liquido = bruto - impostos - retencao - adiantamento + juros; // Permite abater multas no pgto de retencao
       return {
         'Nº ROMANEIO': lote.codigo_lote, 'DATA FECHAMENTO': formatDate(lote.data_geracao), 'RAZÃO SOCIAL FORNECEDOR': nf.contratos?.razao_social, 'CNPJ': nf.contratos?.cnpj_fornecedor, 'Nº NOTA FISCAL': nf.numero_documento, 'TIPO DOC': nf.tipo_documento, 'NATUREZA': nf.natureza_operacao, 'CENTRO DE CUSTO': nf.contratos?.centro_custo_raiz, 'EMISSÃO': formatDate(nf.data_emissao), 'VENCIMENTO': formatDate(nf.data_vencimento), 'VALOR BRUTO/RETIDO (R$)': bruto, 'VALOR DE IMPOSTOS': impostos, 'VALOR DE RETENÇÃO': retencao, 'DESCONTO ADIANTAMENTO/SINAL': adiantamento, 'VALOR DE JUROS E MULTAS': juros, 'LÍQUIDO A PAGAR (R$)': liquido, 'CONTA CORRENTE': nf.conta_corrente || '' 
       };
