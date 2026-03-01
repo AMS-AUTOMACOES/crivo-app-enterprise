@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
 import { ShieldCheck, AlertOctagon, Lock } from 'lucide-react';
+
+// ============================================================================
+// ⚠️ INSTRUÇÕES PARA O GITHUB (SEU AMBIENTE LOCAL):
+// Descomente a linha abaixo no seu projeto local e apague a seção de Mock.
+import { supabase } from '../lib/supabase';
+// ============================================================================
+
+
 
 export default function Login() {
   const [email, setEmail] = useState('');
