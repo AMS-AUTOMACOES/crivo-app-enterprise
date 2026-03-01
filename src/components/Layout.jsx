@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -9,15 +10,16 @@ import {
   User
 } from 'lucide-react';
 
-// Este componente servirá como "esqueleto" para todas as páginas protegidas.
-// No Passo 2, substituiremos as tags <a> por <Link> do react-router-dom.
 export default function Layout({ children }) {
+  // O useLocation permite-nos saber em qual URL estamos no momento
+  const location = useLocation();
+
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
     { icon: FileText, label: 'Contratos', href: '/contratos' },
     { icon: Anchor, label: 'Alfândega', href: '/alfandega' },
     { icon: HardHat, label: 'Engenharia', href: '/engenharia' },
-    { icon: Layers, label: 'Lotes e Romaneios', href: '/lotes', active: true },
+    { icon: Layers, label: 'Lotes e Romaneios', href: '/lotes' },
   ];
 
   return (
@@ -32,19 +34,23 @@ export default function Layout({ children }) {
         <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
           {menuItems.map((item, index) => {
             const Icon = item.icon;
+            
+            // Lógica dinâmica para pintar o botão de verde apenas se for a página atual
+            const isActive = location.pathname.startsWith(item.href);
+            
             return (
-              <a 
+              <Link 
                 key={index}
-                href={item.href}
+                to={item.href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors font-medium text-sm ${
-                  item.active 
+                  isActive 
                     ? 'bg-emerald-600 text-white shadow-md' 
                     : 'hover:bg-slate-800 hover:text-white'
                 }`}
               >
                 <Icon size={18} />
                 {item.label}
-              </a>
+              </Link>
             );
           })}
         </nav>
@@ -63,7 +69,6 @@ export default function Layout({ children }) {
         {/* Cabeçalho Global (Header) */}
         <header className="h-16 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between px-8 z-10">
           <div className="text-sm font-medium text-slate-500">
-            {/* Aqui no futuro podemos colocar Breadcrumbs dinâmicos */}
             Sistema de Gestão Integrada
           </div>
           <div className="flex items-center gap-3">
