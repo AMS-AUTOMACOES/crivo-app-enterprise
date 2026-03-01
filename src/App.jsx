@@ -176,7 +176,7 @@ function LoginScreen() {
 // ============================================================================
 // MÓDULO 0.B: PAINEL SUPER ADMIN (O CENTRO DE COMANDO SAAS)
 // ============================================================================
-function SuperAdminPanel({ onLogout, session }) {
+function SuperAdminPanel({ onLogout }) {
   const [empresas, setEmpresas] = useState([]);
   const [formEmpresa, setFormEmpresa] = useState({ razao_social: '', cnpj: '' });
   const [loading, setLoading] = useState(false);
@@ -293,7 +293,6 @@ function SuperAdminPanel({ onLogout, session }) {
     </div>
   )
 }
-
 
 // ============================================================================
 // MÓDULO 1 A 5: APLICAÇÃO OPERACIONAL (TENANT APP)
@@ -1764,7 +1763,7 @@ function AbaEngenharia() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-1">
                  <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">CNPJ Fornecedor</label>
-                 <input required placeholder="Apenas números" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" value={formPedido.cnpj_terceiro} onChange={e => setFormPedido({...formPedido, cnpj_terceiro: e.target.value})} />
+                 <input required placeholder="Apenas números" className="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" value={formPedido.cnpj_terceiro} onChange={e => setFormFormPedido({...formPedido, cnpj_terceiro: e.target.value})} />
               </div>
               <div className="sm:col-span-2">
                  <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-1">Fornecedor do Material</label>
