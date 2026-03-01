@@ -1,32 +1,54 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // <- ADICIONADO: O motorista das rotas
 import { ShieldCheck, AlertOctagon, Lock } from 'lucide-react';
 
+// ============================================================================
+// ⚠️ INSTRUÇÕES PARA O GITHUB (SEU AMBIENTE LOCAL):
+// DESCOMENTE A LINHA ABAIXO NO SEU PROJETO LOCAL E APAGUE A SEÇÃO DE MOCK.
 import { supabase } from '../lib/supabase';
+// ============================================================================
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  const navigate = useNavigate(); // <- ADICIONADO: Inicialização do motorista
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     
-    const { error } = await supabase.auth.signInWithPassword({
+    // 1. Valida as credenciais base
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) {
+    if (authError) {
       setError('Acesso negado. Credenciais inválidas ou conta inexistente.');
-    } else {
-      // <- ADICIONADO: Ação em caso de sucesso absoluto
-      navigate('/dashboard'); 
+      setLoading(false);
+      return;
+    }
+
+    // 2. Controlador de Tráfego Inteligente (Verifica o nível de acesso)
+    if (authData?.user) {
+      try {
+        const { data: profile } = await supabase
+          .from('perfis')
+          .select('role')
+          .eq('id', authData.user.id)
+          .single();
+
+        // Hard Redirect: Força a limpeza de memória RAM e reconstrói o DOM autenticado
+        if (profile && profile.role === 'SuperAdmin') {
+          window.location.href = '/superadmin';
+        } else {
+          window.location.href = '/dashboard'; 
+        }
+      } catch (err) {
+        console.error("Falha ao ler perfil, fallback para dashboard.", err);
+        window.location.href = '/dashboard';
+      }
     }
     
     setLoading(false);
