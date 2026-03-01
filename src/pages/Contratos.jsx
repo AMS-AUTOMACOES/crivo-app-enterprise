@@ -6,13 +6,23 @@ import {
 } from 'lucide-react';
 
 // ============================================================================
-// CONEXÕES E UTILITÁRIOS
-// ============================================================================
+// ⚠️ INSTRUÇÕES PARA O GITHUB (SEU AMBIENTE LOCAL):
+// DESCOMENTE AS DUAS LINHAS ABAIXO NO SEU PROJETO LOCAL E APAGUE A SEÇÃO DE MOCK.
 import { supabase } from '../lib/supabase';
-import { formatMoney, formatDate, getAllBaseCodes, findBaseCode } from '../utils/formatters';
 import Layout from '../components/Layout';
+// ============================================================================
 
-// Utilitários Locais para garantir que a interface funcione sem depender de arquivos externos
+// ============================================================================
+// UTILITÁRIOS LOCAIS E MÁSCARAS (Garantia anti-quebra da Vercel)
+// ============================================================================
+const formatMoney = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+};
+
 const formatToCurrencyString = (num) => {
   if (num === null || num === undefined || isNaN(num)) return '';
   const isNegative = num < 0;
@@ -30,7 +40,14 @@ const parseCurrency = (val) => {
   return isNegative ? -Math.abs(parsed) : Math.abs(parsed);
 };
 
-// Componente de Máscara de Moeda (Extraído do seu App original)
+const getAllBaseCodes = (contratos) => contratos.map(c => c.codigo_contrato).sort((a,b) => b.length - a.length);
+
+const findBaseCode = (code, allCodes) => {
+  if (!code) return '';
+  const parent = allCodes.find(base => code !== base && code.startsWith(base) && /^[\.\-A-Za-z_]/.test(code.substring(base.length)));
+  return parent || code;
+};
+
 function CurrencyInput({ value, onChange, placeholder, className, required, disabled }) {
   const handleChange = (e) => {
     let val = e.target.value;
@@ -48,7 +65,7 @@ function CurrencyInput({ value, onChange, placeholder, className, required, disa
 }
 
 // ============================================================================
-// COMPONENTE PRINCIPAL
+// COMPONENTE PRINCIPAL (Extraído intacto do teu App original)
 // ============================================================================
 export default function Contratos() {
   const [empresas, setEmpresas] = useState([]);
@@ -266,6 +283,7 @@ export default function Contratos() {
     <Layout>
       <div className="animate-in fade-in duration-700 w-full max-w-7xl mx-auto space-y-6 pb-20 px-2 sm:px-0">
         
+        {/* Modais de Aditivo e Rateio */}
         {showModalAditivo && selectedContratoForAditivo && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
@@ -331,11 +349,13 @@ export default function Contratos() {
           </div>
         )}
 
+        {/* Cabeçalho */}
         <header className="mb-4">
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">EAP e Contratação</h2>
           <p className="text-sm sm:text-base text-slate-500">Definição do Orçamento Base (PMG) e vínculo com fornecedores.</p>
         </header>
         
+        {/* Filtros Superiores */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200">
             <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest mb-4 flex items-center gap-2"><Building2 size={16}/> 1. Investidor</h3>
@@ -364,13 +384,14 @@ export default function Contratos() {
           </div>
         </div>
 
+        {/* EAP e Form Contrato */}
         <div className={`grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 transition-all duration-500 ${!selectedObraId ? 'opacity-30 pointer-events-none grayscale blur-[2px]' : ''}`}>
           
           <div className="xl:col-span-5 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full relative">
             {isEditingOrcamento && (
-              <div className="absolute -top-3 left-6 bg-amber-400 text-amber-900 text-[9px] font-black uppercase px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
+               <div className="absolute -top-3 left-6 bg-amber-400 text-amber-900 text-[9px] font-black uppercase px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
                   Editando EAP <button type="button" onClick={handleCancelEditOrcamento}><X size={12}/></button>
-              </div>
+               </div>
             )}
             <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest mb-4 sm:mb-6 flex items-center gap-2"><ListTree size={16} className="text-blue-600"/> 3. Linha Base PMG (EAP)</h3>
             
@@ -388,16 +409,16 @@ export default function Contratos() {
                     <p className="text-[11px] text-slate-700 font-bold truncate mt-1.5" title={orc.descricao_servico}>{orc.descricao_servico}</p>
                   </div>
                   <div className="text-right shrink-0 flex items-center gap-2">
-                    <div className="text-right mr-1">
-                      <p className="text-[9px] font-black text-slate-400 uppercase leading-none mb-0.5">Teto Aprovado</p>
-                      <p className="text-xs sm:text-sm font-black text-blue-700">{formatMoney(orc.valor_aprovado_teto)}</p>
-                    </div>
-                    <button onClick={() => handleEditOrcamentoClick(orc)} className="p-1.5 bg-white border border-slate-200 text-slate-500 rounded-lg hover:bg-amber-100 hover:text-amber-700 transition-colors" title="Editar Linha PMG">
-                      <Pencil size={14} />
-                    </button>
-                    <button onClick={() => handleDeleteOrcamento(orc.id, orc.codigo_centro_custo)} className="p-1.5 bg-white border border-slate-200 text-slate-400 rounded-lg hover:bg-rose-100 hover:text-rose-600 hover:border-rose-200 transition-colors" title="Excluir Linha PMG">
-                      <Trash2 size={14} />
-                    </button>
+                     <div className="text-right mr-1">
+                       <p className="text-[9px] font-black text-slate-400 uppercase leading-none mb-0.5">Teto Aprovado</p>
+                       <p className="text-xs sm:text-sm font-black text-blue-700">{formatMoney(orc.valor_aprovado_teto)}</p>
+                     </div>
+                     <button onClick={() => handleEditOrcamentoClick(orc)} className="p-1.5 bg-white border border-slate-200 text-slate-500 rounded-lg hover:bg-amber-100 hover:text-amber-700 transition-colors" title="Editar Linha PMG">
+                       <Pencil size={14} />
+                     </button>
+                     <button onClick={() => handleDeleteOrcamento(orc.id, orc.codigo_centro_custo)} className="p-1.5 bg-white border border-slate-200 text-slate-400 rounded-lg hover:bg-rose-100 hover:text-rose-600 hover:border-rose-200 transition-colors" title="Excluir Linha PMG">
+                       <Trash2 size={14} />
+                     </button>
                   </div>
                 </div>
               ))}
@@ -405,15 +426,15 @@ export default function Contratos() {
 
             <form onSubmit={handleAddOrUpdateOrcamento} className="space-y-3 pt-5 border-t border-slate-100 mt-auto">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <div className="sm:col-span-1"><input required placeholder="Cód (Ex: 01.01)" className="w-full p-2.5 border border-slate-200 rounded-lg text-xs font-bold focus:border-blue-400 outline-none" value={formOrcamento.codigo_centro_custo} onChange={e => setFormOrcamento({...formOrcamento, codigo_centro_custo: e.target.value})} /></div>
-                <div className="sm:col-span-2"><input required placeholder="Descrição (Ex: Fundação)" className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:border-blue-400 outline-none" value={formOrcamento.descricao_servico} onChange={e => setFormOrcamento({...formOrcamento, descricao_servico: e.target.value})} /></div>
+                 <div className="sm:col-span-1"><input required placeholder="Cód (Ex: 01.01)" className="w-full p-2.5 border border-slate-200 rounded-lg text-xs font-bold focus:border-blue-400 outline-none" value={formOrcamento.codigo_centro_custo} onChange={e => setFormOrcamento({...formOrcamento, codigo_centro_custo: e.target.value})} /></div>
+                 <div className="sm:col-span-2"><input required placeholder="Descrição (Ex: Fundação)" className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:border-blue-400 outline-none" value={formOrcamento.descricao_servico} onChange={e => setFormOrcamento({...formOrcamento, descricao_servico: e.target.value})} /></div>
               </div>
               <div>
                 <span className="text-[9px] font-black text-blue-600 uppercase ml-1 block mb-1">Valor Aprovado (Capex)</span>
                 <CurrencyInput required className="w-full p-3 border border-blue-200 bg-blue-50/50 rounded-lg text-sm font-black text-blue-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400" value={formOrcamento.valor_aprovado_teto} onChange={val => setFormOrcamento({...formOrcamento, valor_aprovado_teto: val})} />
               </div>
               <button type="submit" className={`w-full text-white p-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${isEditingOrcamento ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                {isEditingOrcamento ? 'Atualizar Linha PMG' : <><Plus size={16}/> Adicionar Linha PMG</>}
+                 {isEditingOrcamento ? 'Atualizar Linha PMG' : <><Plus size={16}/> Adicionar Linha PMG</>}
               </button>
             </form>
           </div>
@@ -459,32 +480,32 @@ export default function Contratos() {
               <div className="mt-auto">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                   <div className="sm:col-span-2 p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
-                    <label className="text-[11px] font-black text-blue-800 uppercase mb-2 flex items-center gap-2"><ListTree size={14}/> Vincular à Linha do PMG</label>
-                    <select required className="w-full p-2 bg-white border border-blue-300 rounded-lg text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm cursor-pointer" value={formContrato.orcamento_pmg_id} onChange={e => setFormContrato({...formContrato, orcamento_pmg_id: e.target.value})}>
-                      <option value="">-- Selecione onde alocar este custo --</option>
-                      {orcamentos.map(orc => <option key={orc.id} value={orc.id}>{orc.codigo_centro_custo} - {orc.descricao_servico} (Teto: {formatMoney(orc.valor_aprovado_teto)})</option>)}
-                    </select>
+                     <label className="text-[11px] font-black text-blue-800 uppercase mb-2 flex items-center gap-2"><ListTree size={14}/> Vincular à Linha do PMG</label>
+                     <select required className="w-full p-2 bg-white border border-blue-300 rounded-lg text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm cursor-pointer" value={formContrato.orcamento_pmg_id} onChange={e => setFormContrato({...formContrato, orcamento_pmg_id: e.target.value})}>
+                       <option value="">-- Selecione onde alocar este custo --</option>
+                       {orcamentos.map(orc => <option key={orc.id} value={orc.id}>{orc.codigo_centro_custo} - {orc.descricao_servico} (Teto: {formatMoney(orc.valor_aprovado_teto)})</option>)}
+                     </select>
                   </div>
                   <div className="sm:col-span-1 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                    <label className="text-[10px] font-black text-slate-500 uppercase mb-2 flex items-center gap-2">Status da Vigência</label>
-                    <select className={`w-full p-2 bg-white border rounded-lg text-xs font-bold outline-none cursor-pointer ${formContrato.status_vigencia === 'Ativo' ? 'text-emerald-700 border-emerald-300' : (formContrato.status_vigencia === 'Encerrado' ? 'text-slate-500 border-slate-300 bg-slate-100' : 'text-amber-700 border-amber-300')}`} value={formContrato.status_vigencia} onChange={e => setFormContrato({...formContrato, status_vigencia: e.target.value})}>
-                      <option value="Ativo">Ativo (Rodando)</option>
-                      <option value="Suspenso">Suspenso</option>
-                      <option value="Encerrado">Encerrado / Liquidado</option>
-                    </select>
+                     <label className="text-[10px] font-black text-slate-500 uppercase mb-2 flex items-center gap-2">Status da Vigência</label>
+                     <select className={`w-full p-2 bg-white border rounded-lg text-xs font-bold outline-none cursor-pointer ${formContrato.status_vigencia === 'Ativo' ? 'text-emerald-700 border-emerald-300' : (formContrato.status_vigencia === 'Encerrado' ? 'text-slate-500 border-slate-300 bg-slate-100' : 'text-amber-700 border-amber-300')}`} value={formContrato.status_vigencia} onChange={e => setFormContrato({...formContrato, status_vigencia: e.target.value})}>
+                       <option value="Ativo">Ativo (Rodando)</option>
+                       <option value="Suspenso">Suspenso</option>
+                       <option value="Encerrado">Encerrado / Liquidado</option>
+                     </select>
                   </div>
                 </div>
 
                 {formContrato.orcamento_pmg_id && (
                   <div className={`p-4 rounded-xl border mb-6 flex justify-between items-center transition-all shadow-inner ${saveGerado >= 0 ? 'bg-emerald-100 border-emerald-300' : 'bg-rose-100 border-rose-300'}`}>
                     <div>
-                      <p className={`text-[11px] font-black uppercase tracking-widest flex items-center gap-2 ${saveGerado >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                        {saveGerado >= 0 ? '✓ ECONOMIA / SAVE GERADO' : <><AlertOctagon size={14}/> ESTOURO DE BUDGET PMG</>}
-                      </p>
-                      <p className="text-[10px] text-slate-600 font-bold mt-1">
-                        Budget da Linha: {formatMoney(tetoAprovado)} <br/>
-                        Outros Contratos Ativos: {formatMoney(somaOutrosContratos)}
-                      </p>
+                       <p className={`text-[11px] font-black uppercase tracking-widest flex items-center gap-2 ${saveGerado >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                         {saveGerado >= 0 ? '✓ ECONOMIA / SAVE GERADO' : <><AlertOctagon size={14}/> ESTOURO DE BUDGET PMG</>}
+                       </p>
+                       <p className="text-[10px] text-slate-600 font-bold mt-1">
+                         Budget da Linha: {formatMoney(tetoAprovado)} <br/>
+                         Outros Contratos Ativos: {formatMoney(somaOutrosContratos)}
+                       </p>
                     </div>
                     <div className="text-right">
                       <span className={`text-xl sm:text-2xl font-black block ${saveGerado >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
@@ -505,6 +526,7 @@ export default function Contratos() {
           </div>
         </div>
 
+        {/* Árvore de Contratos Otimizada e Polida */}
         <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-500 ${!selectedObraId ? 'opacity-30 pointer-events-none grayscale blur-[2px]' : ''}`}>
           <div className="p-4 sm:p-6 bg-slate-900 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div className="flex items-center gap-3 text-white">
@@ -550,6 +572,7 @@ export default function Contratos() {
 
                     return (
                       <React.Fragment key={baseCode}>
+                        {/* ROOT ROW */}
                         <tr className={`transition-colors hover:bg-slate-50 ${isExpanded ? 'bg-blue-50/30' : ''}`}>
                           <td className="p-4 pl-6 text-center">
                             {hasChildren && (
@@ -594,6 +617,7 @@ export default function Contratos() {
                           </td>
                         </tr>
                         
+                        {/* CHILD ROWS (EXPANDED) */}
                         {isExpanded && (
                           <>
                             {rootHasAditivos && root.aditivos_contrato.map(aditivo => (
