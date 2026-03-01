@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { CheckSquare, Download, AlertCircle, Building2, HardHat, FileText, Lock } from 'lucide-react';
+// IMPORTANTE: Aqui importamos o componente recém-criado
+import Layout from '../components/Layout';
 
-export default function App() {
+export default function Lotes() { // Alterado o nome da função de 'App' para 'Lotes' (boa prática)
   const [lotesFechados, setLotesFechados] = useState([]);
   const [notasPendentes, setNotasPendentes] = useState([]);
   const [selecionadas, setSelecionadas] = useState([]);
@@ -72,8 +74,10 @@ export default function App() {
     return acc + Number(n.valor_bruto || 0);
   }, 0);
 
+  // A MÁGICA ACONTECE AQUI:
+  // Removemos as tags <div> de cor de fundo e englobamos tudo no <Layout>
   return (
-    <div className="min-h-screen bg-slate-50 p-8 font-sans text-slate-900">
+    <Layout>
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <div className="p-3 bg-emerald-100 text-emerald-600 rounded-lg shadow-sm">
@@ -113,6 +117,6 @@ export default function App() {
           )}
         </div>
       </div>
-    </div>
+    </Layout>
   );
 }
