@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 // ============================================================================
 // ⚠️ INSTRUÇÕES PARA O GITHUB:
 
-
 // 2. DESCOMENTE ESTAS 2 LINHAS DE PRODUÇÃO:
 import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
@@ -412,8 +411,16 @@ function AbaDashboard() {
            const saldoAdiantamento = adiantamentoTotal - agg.amortizadoAcumulado;
            const saldoRetencao = agg.retidoTotal - agg.retencaoDevolvida;
 
+           // Increment Globals
            globalSaldoAdiantamentoTotal += saldoAdiantamento;
            globalSaldoRetencaoTotal += saldoRetencao;
+           
+           globalTetoBase += Number(c.valor_inicial);
+           globalAditivos += aditivosVal;
+           globalTotalRetido += agg.retidoTotal;
+           globalTotalDevolvido += agg.retencaoDevolvida;
+           globalAdiantamentoConcedido += adiantamentoTotal;
+           globalTotalAmortizado += agg.amortizadoAcumulado;
 
            return { ...c, tetoAtualizado, ...agg, totalMedido, adiantamentoTotal, saldoAdiantamento, saldoRetencao };
         });
@@ -452,6 +459,7 @@ function AbaDashboard() {
 
       const globalSave = globalCapex - globalContratado;
 
+      // Unidades para o Raio-X Macro
       let qtdContratosComAdiant = 0;
       (contData || []).forEach(c => {
          const agg = nfAggByContract[c.id] || { nfAdiantamento: 0 };
@@ -465,7 +473,9 @@ function AbaDashboard() {
         kpis: { 
           globalCapex, globalContratado, globalSave, globalIncorrido, 
           globalSaldoAdiantamentoTotal, globalSaldoRetencaoTotal,
+          // Macro Details
           globalTetoBase, globalAditivos, globalTotalRetido, globalTotalDevolvido, globalAdiantamentoConcedido, globalTotalAmortizado,
+          // Counters
           qtdContratosAtivos: (contData || []).length,
           qtdAditivosLancados: (contData || []).reduce((acc, c) => acc + (c.aditivos_contrato?.length || 0), 0),
           qtdNFsAmortizadas, qtdNFsRetidas, qtdNFsDevolvidas, qtdContratosComAdiant
@@ -2559,6 +2569,7 @@ function AbaLotes() {
 export default function App() {
   const [session, setSession] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [isCheckingRole, setIsCheckingRole] = useState(true); // O NOVO LOADING GATE
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isConnected, setIsConnected] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768); 
@@ -2567,21 +2578,40 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session?.user) fetchProfile(session.user.id);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      } else {
+        setIsCheckingRole(false);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session?.user) fetchProfile(session.user.id);
-      else setUserRole(null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      } else {
+        setUserRole(null);
+        setIsCheckingRole(false);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   async function fetchProfile(userId) {
-    const { data, error } = await supabase.from('perfis').select('role').eq('id', userId).single();
-    if (data && !error) setUserRole(data.role);
+    setIsCheckingRole(true);
+    try {
+      const { data, error } = await supabase.from('perfis').select('role').eq('id', userId).single();
+      if (data && !error) {
+        setUserRole(data.role);
+      } else {
+        console.error("Erro de Auditoria: Perfil não encontrado para o utilizador.", error);
+      }
+    } catch (err) {
+      console.error("Falha ao contactar o banco de dados:", err);
+    } finally {
+      setIsCheckingRole(false);
+    }
   }
 
   // VERIFICAÇÃO DE CONEXÃO E RESPONSIVIDADE
@@ -2606,17 +2636,28 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  // SE NÃO HOUVER SESSÃO, O SISTEMA É BLOQUEADO E EXIBE O LOGIN
-  if (!session) {
+  // 1. SE NÃO HOUVER SESSÃO, EXIBE O LOGIN
+  if (!session && !isCheckingRole) {
     return <LoginScreen />;
   }
 
-  // DESVIO PARA O PAINEL MASTER SE FOR O DONO DO CÓDIGO
-  if (userRole === 'SuperAdmin') {
-    return <SuperAdminPanel onLogout={handleLogout} session={session} />;
+  // 2. A PORTA DE CONTENÇÃO (LOADING GATE)
+  if (isCheckingRole) {
+    return (
+      <div className="flex h-screen w-full bg-slate-900 flex-col items-center justify-center font-sans text-slate-100">
+         <ShieldCheck className="text-emerald-500 mb-4 animate-pulse" size={64} />
+         <h2 className="text-xl font-black uppercase tracking-widest">Autenticando Cofre...</h2>
+         <p className="text-xs text-slate-500 mt-2 font-bold uppercase tracking-wider">Validando nível de acesso</p>
+      </div>
+    );
   }
 
-  // SE HOUVER SESSÃO, E FOR COLABORADOR/DONO/GESTOR, O COFRE OPERACIONAL ESTÁ ABERTO
+  // 3. DESVIO PARA O PAINEL MASTER SE FOR O DONO DO CÓDIGO
+  if (userRole === 'SuperAdmin') {
+    return <SuperAdminPanel onLogout={handleLogout} />;
+  }
+
+  // 4. SE HOUVER SESSÃO, E FOR COLABORADOR/DONO/GESTOR, O COFRE OPERACIONAL ESTÁ ABERTO
   return (
     <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden relative">
       
