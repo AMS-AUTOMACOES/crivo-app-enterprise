@@ -10,25 +10,28 @@ import Engenharia from './pages/Engenharia';
 import Lotes from './pages/Lotes';
 import SuperAdmin from './pages/SuperAdmin';
 
+// IMPORTANTE: Importamos a muralha de segurança que acabaste de criar
+import ProtectedRoute from './components/ProtectedRoute';
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Rota Pública Inicial */}
+        {/* Rota Pública */}
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
 
-        {/* Rotas Privadas (Ainda sem bloqueio de segurança real, faremos no Passo 3) */}
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/alfandega" element={<Alfandega />} />
-        <Route path="/contratos" element={<Contratos />} />
-        <Route path="/engenharia" element={<Engenharia />} />
-        <Route path="/lotes" element={<Lotes />} />
+        {/* Rotas Privadas Blindadas - Nota que agora as páginas estão "abraçadas" pelo ProtectedRoute */}
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/alfandega" element={<ProtectedRoute><Alfandega /></ProtectedRoute>} />
+        <Route path="/contratos" element={<ProtectedRoute><Contratos /></ProtectedRoute>} />
+        <Route path="/engenharia" element={<ProtectedRoute><Engenharia /></ProtectedRoute>} />
+        <Route path="/lotes" element={<ProtectedRoute><Lotes /></ProtectedRoute>} />
         
         {/* Rota Restrita */}
-        <Route path="/superadmin" element={<SuperAdmin />} />
+        <Route path="/superadmin" element={<ProtectedRoute><SuperAdmin /></ProtectedRoute>} />
 
-        {/* Rota de Fallback: Se o utilizador digitar um URL que não existe, vai para o Dashboard */}
+        {/* Rota de Fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
