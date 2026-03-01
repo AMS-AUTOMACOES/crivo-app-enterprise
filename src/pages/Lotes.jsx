@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   CheckSquare, Download, AlertCircle, Building2, HardHat, FileText, Lock, 
-  Search, X, Eye 
+  Search, X, Eye, Layers 
 } from 'lucide-react';
 
 // ============================================================================
