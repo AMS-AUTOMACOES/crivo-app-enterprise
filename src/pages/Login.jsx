@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // <- ADICIONADO: O motorista das rotas
 import { ShieldCheck, AlertOctagon, Lock } from 'lucide-react';
 
-// ============================================================================
-// ⚠️ INSTRUÇÕES PARA O GITHUB (SEU AMBIENTE LOCAL):
-// Descomente a linha abaixo no seu projeto local e apague a seção de Mock.
 import { supabase } from '../lib/supabase';
-// ============================================================================
-
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  const navigate = useNavigate(); // <- ADICIONADO: Inicialização do motorista
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -26,7 +24,11 @@ export default function Login() {
 
     if (error) {
       setError('Acesso negado. Credenciais inválidas ou conta inexistente.');
+    } else {
+      // <- ADICIONADO: Ação em caso de sucesso absoluto
+      navigate('/dashboard'); 
     }
+    
     setLoading(false);
   };
 
