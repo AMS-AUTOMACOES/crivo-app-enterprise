@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { Server, Building2, Users2, LogOut, Plus, Database, Menu, X } from 'lucide-react';
+
+// ============================================================================
+// ⚠️ INSTRUÇÕES PARA O GITHUB (SEU AMBIENTE LOCAL):
+// No seu código local, APAGUE toda a seção de "MOCKS" abaixo e DESCOMENTE as duas linhas:
 import { supabase } from '../lib/supabase';
 import { formatDate } from '../utils/formatters';
-import { Server, Building2, Users2, LogOut, Plus, Database, Menu, X } from 'lucide-react';
+// ============================================================================
+
 
 export default function SuperAdmin({ onLogout }) {
   const [empresas, setEmpresas] = useState([]);
